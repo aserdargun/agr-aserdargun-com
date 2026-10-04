@@ -130,6 +130,17 @@ const useTab = async (page: import('@playwright/test').Page, name: string) => {
   await page.getByRole('tab', { name }).click()
 }
 
+/**
+ * Wait for the run to finish.
+ *
+ * A finished session opens on its own outcome, so a test that clicks a tab straight after
+ * convening the panel can be clicked into the transcript and then moved off it by the
+ * switch that follows. Waiting on the switch is the same fact a visitor waits for.
+ */
+const settled = async (page: import('@playwright/test').Page) => {
+  await expect(page.getByRole('tab', { name: 'Outcome' })).toHaveAttribute('aria-selected', 'true', { timeout: 30000 })
+}
+
 test.beforeEach(async ({ page }) => {
   await stubOpenRouter(page)
 })
@@ -175,6 +186,7 @@ test('runs three rounds and shows who answered whom', async ({ page }) => {
   await openWithKey(page)
   await page.getByLabel('Proposition').fill('Static types are worth their cost in a small codebase.')
   await page.getByRole('button', { name: 'Convene the panel' }).click()
+  await settled(page)
   await useTab(page, 'Transcript')
 
   await expect(page.getByRole('heading', { name: 'First round · every seat answers alone' })).toBeVisible({ timeout: 30000 })
@@ -223,6 +235,7 @@ test('lets the panel choose its own topic and groups similar proposals', async (
   await openWithKey(page)
   await page.getByRole('button', { name: 'The panel chooses' }).click()
   await page.getByRole('button', { name: 'Convene the panel' }).click()
+  await settled(page)
   await useTab(page, 'Transcript')
 
   await expect(page.getByRole('heading', { name: 'The panel proposes' })).toBeVisible({ timeout: 30000 })
@@ -250,6 +263,7 @@ test('marks a prose answer as non-compliant instead of hiding it', async ({ page
   await openWithKey(page)
   await page.getByLabel('Proposition').fill('Anything debatable at all.')
   await page.getByRole('button', { name: 'Convene the panel' }).click()
+  await settled(page)
   await useTab(page, 'Transcript')
 
   await expect(page.getByText('answered in prose').first()).toBeVisible({ timeout: 30000 })
@@ -315,6 +329,26 @@ test('switches to Turkish and keeps the honesty statement', async ({ page }) => 
 
   await expect(page.getByRole('heading', { name: 'Bu haftanın kadrosu' })).toBeVisible()
   await expect(page.getByText('Panelin dışında')).toBeVisible()
+})
+
+test('moves between sections with the arrow keys, and keeps one tab in the tab order', async ({ page }) => {
+  await page.goto('/')
+
+  const panel = page.getByRole('tab', { name: 'Panel' })
+  await panel.focus()
+  await page.keyboard.press('ArrowRight')
+
+  const outcome = page.getByRole('tab', { name: 'Outcome' })
+  await expect(outcome).toHaveAttribute('aria-selected', 'true')
+  // Focus follows the selection, or a keyboard visitor is left standing on a tab that is
+  // no longer the one they are reading.
+  await expect(outcome).toBeFocused()
+
+  await page.keyboard.press('End')
+  await expect(page.getByRole('tab', { name: 'Roster' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tab', { name: 'Roster' })).toHaveAttribute('tabindex', '0')
+  // Roving tabindex: only the selected tab is reachable with Tab, so the bar is one stop.
+  await expect(page.getByRole('tab', { name: 'Panel' })).toHaveAttribute('tabindex', '-1')
 })
 
 test('works on a phone viewport', async ({ page }) => {
