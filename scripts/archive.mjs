@@ -13,7 +13,7 @@
  */
 import { readdir, readFile, writeFile, copyFile, mkdir } from 'node:fs/promises'
 import { join, basename } from 'node:path'
-import { validateArchiveRecord } from './archive-contract.mjs'
+import { toTimelineRow, validateArchiveRecord } from './archive-contract.mjs'
 
 const ARCHIVE_DIR = 'archive'
 const SHARED = join('src', 'data', 'timeline.json')
@@ -101,32 +101,7 @@ if (mode === 'add') {
     process.exit(1)
   }
 
-  const fromArchive = entries.map(({ record }) => {
-    const first = record.tally.consensus
-    return {
-      id: record.id,
-      startedAt: record.startedAt,
-      finishedAt: record.finishedAt,
-      motion: record.motion,
-      topicSource: record.agenda?.mode === 'panel' ? 'panel' : 'given',
-      panel: record.panel.map((seat) => ({ label: seat.label, modelId: seat.modelId })),
-      counts: record.tally.counts,
-      leading: record.tally.leading,
-      consensus: record.tally.consensus,
-      dissentShare: record.tally.dissentShare,
-      dissent: [...(record.floor ?? []), ...(record.convergence ?? [])]
-        .filter((turn) => record.tally.dissentingSeats.includes(turn.seat))
-        .map((turn) => ({ seat: turn.seat, position: turn.position, reason: turn.reason })),
-      unreadable: record.tally.unreadableSeats,
-      requestsSpent: record.requestsSpent,
-      seats: record.panel.map((seat) => seat.label),
-      agreementPath: {
-        blind: record.trajectory?.snapshots?.[0]?.agreement ?? first,
-        final: record.trajectory?.snapshots?.[record.trajectory.snapshots.length - 1]?.agreement ?? first,
-      },
-      quotaAfter: record.quota.after,
-    }
-  })
+  const fromArchive = entries.map(({ record }) => toTimelineRow(record))
 
   // The visitor's own sessions are appended at build time from a file that is not
   // committed, so a private run never lands in the shared timeline by accident.

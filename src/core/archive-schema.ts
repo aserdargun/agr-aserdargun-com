@@ -1,4 +1,4 @@
-import { validateArchiveRecord } from '../../scripts/archive-contract.mjs'
+import { toTimelineRow, validateArchiveRecord, validateTimelineRecord } from '../../scripts/archive-contract.mjs'
 import type { FloorTurn, Locale, Position, Quota, SessionRecord, Vote } from './types'
 
 /**
@@ -57,30 +57,47 @@ const roundOf = (entry: Vote | FloorTurn): ArchiveRound => ({
   ...(entry.error ? { error: entry.error } : {}),
 })
 
+/**
+ * The record as the archive stores it.
+ *
+ * Both quota snapshots travel with it, and the tally does too, because the contract
+ * re-derives the count from the rounds and refuses a record whose stored tally disagrees.
+ */
+const archiveShape = (session: SessionRecord) => ({
+  schemaVersion: '0.1' as const,
+  id: session.id,
+  motion: session.motion,
+  locale: session.locale,
+  startedAt: session.startedAt,
+  finishedAt: session.finishedAt,
+  agenda: session.agenda,
+  panel: session.panel.map((seat) => ({ label: seat.label, modelId: seat.member.id })),
+  blind: session.blind.map(roundOf),
+  floor: session.floor.map(roundOf),
+  convergence: session.convergence.map(roundOf),
+  trajectory: session.trajectory,
+  requestsSpent: session.requestsSpent,
+  quota: { before: session.quota.before, after: session.quota.after },
+  tally: session.verdict.tally,
+})
+
 /** A record is only exportable if both quota snapshots exist; the contract needs them to prove the cost. */
 export const toArchiveRecord = (session: SessionRecord): ArchiveRecord | null => {
   if (!session.quota.before || !session.quota.after) return null
-  return {
-    schemaVersion: '0.1',
-    id: session.id,
-    motion: session.motion,
-    locale: session.locale,
-    startedAt: session.startedAt,
-    finishedAt: session.finishedAt,
-    agenda: session.agenda,
-    panel: session.panel.map((seat) => ({ label: seat.label, modelId: seat.member.id })),
-    blind: session.blind.map(roundOf),
-    floor: session.floor.map(roundOf),
-    convergence: session.convergence.map(roundOf),
-    trajectory: session.trajectory,
-    requestsSpent: session.requestsSpent,
-    quota: { before: session.quota.before, after: session.quota.after },
-    tally: session.verdict.tally,
-  }
+  return archiveShape(session) as ArchiveRecord
 }
 
 export const validateForArchive = (record: unknown, existingIds: string[] = []): string[] =>
   validateArchiveRecord(record, { existingIds })
+
+/**
+ * The same rule one step later, for a row read back out of the shared feed.
+ *
+ * A row arrives from storage rather than from this session, so it is checked before it is
+ * shown: the shares it shows are recomputed from the counts it carries, and a row whose
+ * names and numbers describe different seats is dropped rather than displayed.
+ */
+export const validateTimelineRow = (row: unknown): string[] => validateTimelineRecord(row)
 
 export interface TimelineDissent {
   seat: string
@@ -104,6 +121,8 @@ export interface TimelineRecord {
   dissent: TimelineDissent[]
   unreadable: string[]
   requestsSpent: number
+  /** Seats the final round invited back. The request count cannot be re-derived without it. */
+  invited: number
   /** Seat letters, so the same proposition can be compared across rosters. */
   seats: string[]
   /** Agreement after the first round and at the end, so a moved count is visible. */
@@ -111,33 +130,16 @@ export interface TimelineRecord {
   quotaAfter: Quota
 }
 
+/**
+ * The timeline row, derived by the shared contract rather than restated here.
+ *
+ * Only the counter *after* the run is needed to draw a row, so a session that never
+ * managed to read its own quota still appears in the timeline. It cannot be filed,
+ * because a record without the before snapshot cannot prove what it cost.
+ */
 export const toTimelineRecord = (session: SessionRecord): TimelineRecord | null => {
   if (!session.quota.after) return null
-  const { tally } = session.verdict
-  const trajectory = session.trajectory
-  return {
-    id: session.id,
-    startedAt: session.startedAt,
-    finishedAt: session.finishedAt,
-    motion: session.motion,
-    topicSource: session.agenda.mode,
-    panel: session.panel.map((seat) => ({ label: seat.label, modelId: seat.member.id })),
-    counts: tally.counts,
-    leading: tally.leading,
-    consensus: tally.consensus,
-    dissentShare: tally.dissentShare,
-    dissent: session.floor
-      .filter((turn) => tally.dissentingSeats.includes(turn.seat))
-      .map((turn) => ({ seat: turn.seat, position: turn.position, reason: turn.reason })),
-    unreadable: tally.unreadableSeats,
-    requestsSpent: session.requestsSpent,
-    seats: session.panel.map((seat) => seat.label),
-    agreementPath: {
-      blind: trajectory.snapshots[0]?.agreement ?? tally.consensus,
-      final: trajectory.snapshots[trajectory.snapshots.length - 1]?.agreement ?? tally.consensus,
-    },
-    quotaAfter: session.quota.after,
-  }
+  return toTimelineRow(archiveShape(session))
 }
 
 /**

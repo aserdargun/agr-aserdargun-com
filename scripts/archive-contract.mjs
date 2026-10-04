@@ -61,6 +61,205 @@ export function recount(record) {
 }
 
 /**
+ * Derive the timeline row from a record's rounds.
+ *
+ * The row is what the shared feed shows, so it must not carry a second opinion about the
+ * verdict: the count is re-derived here from the stored positions and the stored tally is
+ * not read. One derivation, used by the filing tool and by the archive endpoint alike.
+ *
+ * A seat that was invited back and refused to move appears once, not twice. The last
+ * answer it gave is the position the count already uses, so the earlier one is a step in
+ * the discussion rather than a second vote.
+ */
+export function toTimelineRow(record) {
+  const derived = recount(record)
+  const lastAnswer = new Map()
+  for (const round of [record?.floor, record?.convergence]) {
+    for (const turn of round ?? []) {
+      if (isObject(turn) && typeof turn.seat === 'string') lastAnswer.set(turn.seat, turn)
+    }
+  }
+
+  const snapshots = record?.trajectory?.snapshots ?? []
+  const counts = {}
+  for (const position of POSITIONS) counts[position] = derived.counts[position]
+
+  return {
+    id: record?.id,
+    startedAt: record?.startedAt,
+    finishedAt: record?.finishedAt,
+    motion: record?.motion,
+    topicSource: record?.agenda?.mode === 'panel' ? 'panel' : 'given',
+    panel: (record?.panel ?? []).map((seat) => ({ label: seat?.label, modelId: seat?.modelId })),
+    counts,
+    leading: derived.leading,
+    consensus: derived.consensus,
+    dissentShare: derived.dissentShare,
+    dissent: derived.dissentingSeats
+      .map((seat) => {
+        const turn = lastAnswer.get(seat)
+        return turn ? { seat, position: turn.position, reason: turn.reason } : null
+      })
+      .filter((entry) => entry !== null),
+    unreadable: derived.unreadableSeats,
+    requestsSpent: record?.requestsSpent,
+    /** Seats the final round invited back; the cost cannot be re-derived without it. */
+    invited: Array.isArray(record?.convergence) ? record.convergence.length : 0,
+    seats: (record?.panel ?? []).map((seat) => seat?.label),
+    agreementPath: {
+      blind: snapshots[0]?.agreement ?? derived.consensus,
+      final: snapshots[snapshots.length - 1]?.agreement ?? derived.consensus,
+    },
+    quotaAfter: record?.quota?.after,
+  }
+}
+
+/**
+ * Re-derive a timeline row from the count it carries.
+ *
+ * This mirrors the arithmetic of `recount()` above, one step earlier: a row stores its
+ * own counts, so its leading position and its two shares can be recomputed without
+ * reading the rounds it came from. A row that disagrees is not shown, which is the same
+ * rule the record itself obeys — a stored count is never taken on trust.
+ */
+export function recountTimelineRow(row) {
+  const counts = { support: 0, oppose: 0, abstain: 0, unclear: 0 }
+  for (const position of POSITIONS) {
+    const value = row?.counts?.[position]
+    if (Number.isInteger(value) && value >= 0) counts[position] = value
+  }
+  const decided = counts.support + counts.oppose
+  const leading = decided === 0 ? 'abstain' : counts.abstain > decided ? 'abstain' : counts.support >= counts.oppose ? 'support' : 'oppose'
+  const consensus = decided === 0 || leading === 'abstain' ? 0 : counts[leading] / decided
+  return { counts, leading, consensus, dissentShare: leading === 'abstain' ? 0 : 1 - consensus, total: Object.values(counts).reduce((sum, value) => sum + value, 0) }
+}
+
+const isShare = (value) => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
+
+/**
+ * Validate one timeline row.
+ *
+ * Returns every problem found rather than the first, so a reader can say what it refused
+ * instead of quietly showing a smaller feed.
+ */
+export function validateTimelineRecord(row) {
+  const errors = []
+  const fail = (path, message) => errors.push(`${path}: ${message}`)
+
+  if (!isObject(row)) return ['row: not an object']
+  if (typeof row.id !== 'string' || row.id.length < 4) fail('id', 'missing or too short')
+  if (typeof row.motion !== 'string' || row.motion.trim().length < 8) fail('motion', 'a proposition of at least 8 characters is required')
+  if (!isIsoDate(row.startedAt)) fail('startedAt', 'not a valid timestamp')
+  if (!isIsoDate(row.finishedAt)) fail('finishedAt', 'not a valid timestamp')
+  if (!['given', 'panel'].includes(row.topicSource)) fail('topicSource', 'must be given or panel')
+
+  if (!Array.isArray(row.panel) || row.panel.length < 2) fail('panel', 'at least two seats are required')
+  if (row.panel?.length > 10) fail('panel', 'more than ten seats is not a panel Agora runs')
+
+  const seats = new Set()
+  for (const [index, seat] of (row.panel ?? []).entries()) {
+    if (!isObject(seat)) {
+      fail(`panel[${index}]`, 'not an object')
+      continue
+    }
+    if (!SEAT.test(seat.label ?? '')) fail(`panel[${index}].label`, 'must be a single seat letter A-J')
+    if (seats.has(seat.label)) fail(`panel[${index}].label`, `duplicate seat ${seat.label}`)
+    seats.add(seat.label)
+    if (typeof seat.modelId !== 'string' || !seat.modelId.endsWith(':free')) {
+      fail(`panel[${index}].modelId`, 'must be a `:free` variant id')
+    }
+  }
+
+  if (!isObject(row.counts)) {
+    fail('counts', 'missing')
+  } else {
+    for (const position of POSITIONS) {
+      if (!Number.isInteger(row.counts[position]) || row.counts[position] < 0) {
+        fail(`counts.${position}`, 'must be a non-negative integer')
+      }
+    }
+  }
+
+  const derived = recountTimelineRow(row)
+  if (derived.total > (row.panel?.length ?? 0)) {
+    fail('counts', `counts total ${derived.total} for a panel of ${row.panel?.length ?? 0} seats`)
+  }
+
+  if (!POSITIONS.includes(row.leading)) fail('leading', 'not a known position')
+  else if (row.leading !== derived.leading) fail('leading', `stored ${row.leading} but the counts give ${derived.leading}`)
+  if (!isShare(row.consensus)) fail('consensus', 'must be a share between 0 and 1')
+  else if (Math.abs(row.consensus - derived.consensus) > 1e-9) {
+    fail('consensus', `stored ${row.consensus} but the counts give ${derived.consensus}`)
+  }
+  if (!isShare(row.dissentShare)) fail('dissentShare', 'must be a share between 0 and 1')
+  else if (Math.abs(row.dissentShare - derived.dissentShare) > 1e-9) {
+    fail('dissentShare', `stored ${row.dissentShare} but the counts give ${derived.dissentShare}`)
+  }
+
+  // The count and the names have to describe the same seats: one row per dissenting seat,
+  // and one name per unreadable seat.
+  if (!Array.isArray(row.dissent)) fail('dissent', 'missing')
+  else {
+    for (const [index, entry] of row.dissent.entries()) {
+      if (!isObject(entry)) {
+        fail(`dissent[${index}]`, 'not an object')
+        continue
+      }
+      if (!seats.has(entry.seat)) fail(`dissent[${index}].seat`, 'is not a seat in the panel')
+      if (!POSITIONS.includes(entry.position)) fail(`dissent[${index}].position`, 'is not a known position')
+      if (typeof entry.reason !== 'string') fail(`dissent[${index}].reason`, 'must be a string')
+    }
+    const named = new Set(row.dissent.map((entry) => entry?.seat))
+    if (named.size !== row.dissent.length) fail('dissent', 'names the same seat twice')
+    const expected = derived.total - (derived.counts[derived.leading] ?? 0)
+    if (row.dissent.length !== expected) {
+      fail('dissent', `names ${row.dissent.length} seats but the counts put ${expected} seats off the leading position`)
+    }
+    for (const entry of row.dissent) {
+      if (entry?.position === derived.leading) fail(`dissent[${entry.seat}]`, 'is listed as dissenting but holds the leading position')
+    }
+  }
+
+  if (!Array.isArray(row.unreadable)) fail('unreadable', 'missing')
+  else {
+    if (row.unreadable.length !== (derived.counts.unclear ?? 0)) {
+      fail('unreadable', `names ${row.unreadable.length} seats but the counts put ${derived.counts.unclear ?? 0} unreadable`)
+    }
+    for (const seat of row.unreadable) if (!seats.has(seat)) fail('unreadable', `${seat} is not a seat in the panel`)
+  }
+
+  // A row cannot re-derive its own request count without knowing who came back, so the
+  // number of invited seats travels with it and the same cost rule is applied.
+  if (!Number.isInteger(row.invited) || row.invited < 0) fail('invited', 'must be a non-negative integer')
+  if (Number.isInteger(row.invited) && Number.isInteger(row.requestsSpent)) {
+    const agendaCost = row.topicSource === 'panel' ? (row.panel?.length ?? 0) : 0
+    const expectedCost = (row.panel?.length ?? 0) * 2 + row.invited + agendaCost
+    if (row.requestsSpent !== expectedCost) {
+      fail('requestsSpent', `expected ${expectedCost} for ${row.panel?.length ?? 0} seats, ${row.invited} invited back and a ${row.topicSource} topic, got ${row.requestsSpent}`)
+    }
+  }
+
+  if (!isObject(row.agreementPath) || !isShare(row.agreementPath.blind) || !isShare(row.agreementPath.final)) {
+    fail('agreementPath', 'both the first round and the final share must be between 0 and 1')
+  }
+
+  if (!isObject(row.quotaAfter)) {
+    fail('quotaAfter', 'missing')
+  } else {
+    for (const field of ['used', 'limit', 'remaining']) {
+      if (!Number.isInteger(row.quotaAfter[field]) || row.quotaAfter[field] < 0) {
+        fail(`quotaAfter.${field}`, 'must be a non-negative integer')
+      }
+    }
+    if (row.quotaAfter.used + row.quotaAfter.remaining !== row.quotaAfter.limit) {
+      fail('quotaAfter', `used ${row.quotaAfter.used} + remaining ${row.quotaAfter.remaining} does not match limit ${row.quotaAfter.limit}`)
+    }
+  }
+
+  return errors
+}
+
+/**
  * Validate one archive record.
  *
  * Returns every problem found rather than the first, so a rejected export can explain
@@ -121,6 +320,9 @@ export function validateArchiveRecord(record, options = {}) {
       }
       if (!seats.has(entry.seat)) fail(`${round}[${index}].seat`, 'not a seat in the panel')
       if (!POSITIONS.includes(entry.position)) fail(`${round}[${index}].position`, 'not a known position')
+      // The reason is what the shared record shows next to a dissenting seat, so a record
+      // that has no reason for an entry would produce a row no reader could accept.
+      if (typeof entry.reason !== 'string') fail(`${round}[${index}].reason`, 'must be a string')
       if (!CONFIDENCE_BASES.includes(entry.confidenceBasis)) {
         fail(`${round}[${index}].confidenceBasis`, 'not a known confidence basis')
       }

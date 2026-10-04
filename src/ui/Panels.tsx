@@ -16,6 +16,7 @@ import {
   type Vote,
 } from '../core/types'
 import type { Cluster } from '../core/engine'
+import type { StoreState } from '../core/cloud-archive'
 import { copy, text } from './copy'
 import type { Theme } from './theme'
 import { selectionRule } from '../core/roster'
@@ -553,12 +554,17 @@ export function VerdictCard({ locale, record }: { locale: Locale; record: Sessio
 export function ExportCard({
   locale,
   onExport,
+  onStore,
+  store,
   problems,
 }: {
   locale: Locale
   onExport: () => void
+  onStore: () => void
+  store: StoreState
   problems: string[]
 }) {
+  const filing = store.phase === 'storing'
   return (
     <section className="ag-card">
       <h2>{text(copy.exportHeading, locale)}</h2>
@@ -573,10 +579,30 @@ export function ExportCard({
           </ul>
         </>
       ) : (
-        <button type="button" onClick={onExport}>
-          {text(copy.exportButton, locale)}
-        </button>
+        <>
+          <div className="ag-row">
+            <button type="button" onClick={onExport}>
+              {text(copy.exportButton, locale)}
+            </button>
+            <button type="button" className="ag-ghost" onClick={onStore} disabled={filing}>
+              {text(filing ? copy.storing : copy.storeButton, locale)}
+            </button>
+          </div>
+          <p className="ag-muted">{text(copy.storeNote, locale)}</p>
+        </>
       )}
+      {store.phase === 'stored' ? <p className="ag-muted">{text(copy.stored, locale)}</p> : null}
+      {store.phase === 'unreachable' ? <p className="ag-warn">{text(copy.storeUnreachable, locale)}</p> : null}
+      {store.phase === 'refused' ? (
+        <>
+          <p className="ag-error">{text(copy.storeRefused, locale)}</p>
+          <ul className="ag-dissent">
+            {store.errors.map((problem) => (
+              <li key={problem}>{problem}</li>
+            ))}
+          </ul>
+        </>
+      ) : null}
     </section>
   )
 }

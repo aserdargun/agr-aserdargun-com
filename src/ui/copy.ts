@@ -124,11 +124,28 @@ export const copy = {
     en: 'The session has no quota snapshot, so it cannot prove what it cost.',
     tr: 'Oturumun kota anlık görüntüsü yok, bu yüzden maliyetini kanıtlayamıyor.',
   },
+  storeNote: {
+    en: 'Filing sends the record to Agora’s own /api route, where the same archive contract is applied before anything is written. The browser never holds a storage key.',
+    tr: 'Kaydetme kaydı Agora’nın kendi /api rotasına gönderir; orada hiçbir şey yazılmadan önce aynı arşiv sözleşmesi uygulanır. Tarayıcı hiçbir zaman depo anahtarı tutmaz.',
+  },
+  storeButton: { en: 'File it in the shared archive', tr: 'Paylaşılan arşive kaydet' },
+  storing: { en: 'Filing…', tr: 'Kaydediliyor…' },
+  stored: { en: 'Filed in the shared archive.', tr: 'Paylaşılan arşive kaydedildi.' },
+  storeRefused: { en: 'The archive refused this record:', tr: 'Arşiv bu kaydı reddetti:' },
+  storeUnreachable: {
+    en: 'The archive could not be reached, so the record stays in this browser only. Nothing is lost from this screen, and the download above still works.',
+    tr: 'Arşive ulaşılamadı; kayıt yalnızca bu tarayıcıda kalıyor. Bu ekrandan hiçbir şey kaybolmadı ve yukarıdaki indirme hâlâ çalışır.',
+  },
 
   timelineHeading: { en: 'The shared record', tr: 'Paylaşımlı kayıt' },
   timelineNote: {
-    en: 'Verdicts filed in the repository. When a proposition is answered more than once, the count from each roster sits next to the others.',
-    tr: 'Depoya kaydedilmiş kararlar. Bir öneri birden çok kez yanıtlandığında her kadronun sayımı yan yana durur.',
+    en: 'Every verdict the archive holds, read as it stands now. When a proposition is answered more than once, the count from each roster sits next to the others.',
+    tr: 'Arşivin tuttuğu her karar, şu anki hâliyle okunmuş olarak. Bir öneri birden çok kez yanıtlandığında her kadronun sayımı yan yana durur.',
+  },
+  timelineLive: { en: 'Read from the archive just now.', tr: 'Az önce arşivden okundu.' },
+  timelineUnreadable: {
+    en: 'The shared archive could not be read, so only the records this browser already holds are shown.',
+    tr: 'Paylaşımlı arşiv okunamadı; bu yüzden yalnızca bu tarayıcının tuttuğu kayıtlar gösteriliyor.',
   },
   timelineEmpty: { en: 'No verdict has been filed yet.', tr: 'Henüz kaydedilmiş bir karar yok.' },
   mySessions: { en: 'Your sessions in this browser', tr: 'Bu tarayıcıdaki oturumlarınız' },

@@ -30,6 +30,8 @@ jobs:
         run: npm run build
       - name: Verify artifact hashes and references
         run: npm run verify:artifact
+      - name: Copy the archive contract into the Functions app
+        run: node scripts/sync-api-contract.mjs
       - name: Install test browser
         run: npx playwright install --with-deps chromium
       - name: Test production browser flows
@@ -43,5 +45,9 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_SWA_AGR_ASERDARGUN_COM }}
           action: upload
           app_location: dist
+          # The static app is uploaded prebuilt, because the release step is what validates
+          # the hashes in it. The API is not: Oryx builds it from api/ during this step, so
+          # `skip_app_build` must stay set while `skip_api_build` must not.
+          api_location: api
           output_location: ''
           skip_app_build: true

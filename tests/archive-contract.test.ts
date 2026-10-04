@@ -1,7 +1,17 @@
+import { execFileSync } from 'node:child_process'
+import { readFile } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
-import { ARCHIVE_SCHEMA_VERSION, recount, validateArchiveRecord } from '../scripts/archive-contract.mjs'
+import {
+  ARCHIVE_SCHEMA_VERSION,
+  recount,
+  recountTimelineRow,
+  toTimelineRow,
+  validateArchiveRecord,
+  validateTimelineRecord,
+} from '../scripts/archive-contract.mjs'
 import { tally } from '../src/core/engine'
-import type { FloorTurn, Position, Vote } from '../src/core/types'
+import { toTimelineRecord, validateTimelineRow } from '../src/core/archive-schema'
+import type { FloorTurn, Position, RosterEntry, SessionRecord, Vote } from '../src/core/types'
 
 const seat = (label: string, overrides: Partial<Vote> = {}): Vote => ({
   seat: label,
@@ -105,6 +115,23 @@ describe('archive contract', () => {
       expect(fromContract.consensus).toBeCloseTo(fromEngine.consensus, 12)
       expect(fromContract.dissentingSeats).toEqual(fromEngine.dissentingSeats)
       expect(fromContract.unreadableSeats).toEqual(fromEngine.unreadableSeats)
+
+      // The row is a second presentation of the same count, so it is pinned the same way:
+      // a mapping mistake in the row would otherwise reach the shared feed unnoticed.
+      const row = toTimelineRow({
+        ...record(),
+        blind: blind.map((position, index) => ({ seat: 'ABC'[index], position, reason: 'because' })),
+        floor: floor.map((position, index) => ({ seat: 'ABC'[index], position, reason: 'because' })),
+        convergence: convergence.map((position, index) => ({ seat: 'ABC'[index], position, reason: 'because' })),
+        requestsSpent: 6 + convergence.length,
+      })
+      expect(row.counts).toEqual(fromEngine.counts)
+      expect(row.leading).toBe(fromEngine.leading)
+      expect(row.consensus).toBeCloseTo(fromEngine.consensus, 12)
+      expect(row.dissentShare).toBeCloseTo(fromEngine.dissentShare, 12)
+      expect(row.unreadable).toEqual(fromEngine.unreadableSeats)
+      expect(row.dissent.map((entry) => entry.seat)).toEqual(fromEngine.dissentingSeats)
+      expect(validateTimelineRecord(row)).toEqual([])
     }
   })
 
@@ -193,6 +220,13 @@ describe('archive contract', () => {
     expect(validateArchiveRecord(record({ floor: [turn('A'), turn('B'), turn('D')] })).join('\n')).toMatch(/floor\[2\]\.seat/)
   })
 
+  it('refuses a round entry with no reason, because the shared record shows it', () => {
+    const { reason: _dropped, ...withoutReason } = turn('A') as Partial<FloorTurn>
+    expect(validateArchiveRecord(record({ floor: [withoutReason, turn('B'), turn('C', { position: 'oppose' })] })).join('\n')).toMatch(
+      /floor\[0\]\.reason/,
+    )
+  })
+
   it('refuses a missing convergence round, so a partial record cannot be filed as complete', () => {
     const { convergence: _omitted, ...withoutConvergence } = record() as Record<string, unknown>
     expect(validateArchiveRecord(withoutConvergence).join('\n')).toMatch(/convergence: missing/)
@@ -218,5 +252,109 @@ describe('archive contract', () => {
 
   it('refuses a record with fewer than two seats', () => {
     expect(validateArchiveRecord(record({ panel: [{ label: 'A', modelId: 'a/one:free' }] })).join('\n')).toMatch(/at least two seats/)
+  })
+})
+
+const member = (index: number): RosterEntry => ({
+  id: `${'abc'[index]}/model:free`,
+  slug: `${'abc'[index]}/model`,
+  provider: 'abc'[index],
+  contextLength: 8192,
+  maxCompletionTokens: 4096,
+  isModerated: false,
+  supports: { structuredOutputs: false, responseFormat: false, logprobs: false, tools: false },
+})
+
+const session = (overrides: Partial<SessionRecord> = {}): SessionRecord => {
+  const base = record()
+  return {
+    id: base.id,
+    motion: base.motion,
+    locale: 'en',
+    startedAt: base.startedAt,
+    finishedAt: base.finishedAt,
+    agenda: { mode: 'given', proposals: [], chosen: base.motion, chosenBy: 'given', clusterSize: 0 },
+    panel: base.panel.map((entry, index) => ({ label: entry.label, member: member(index) })),
+    blind: [seat('A'), seat('B'), seat('C')],
+    floor: [turn('A'), turn('B'), turn('C', { position: 'oppose' })],
+    convergence: [],
+    trajectory: base.trajectory as unknown as SessionRecord['trajectory'],
+    verdict: {
+      tally: base.tally as unknown as SessionRecord['verdict']['tally'],
+      synthesis: null,
+      synthesisSeat: null,
+      synthesisFormatCompliant: true,
+    },
+    quota: { before: base.quota.before, after: base.quota.after },
+    requestsSpent: base.requestsSpent,
+    ...overrides,
+  }
+}
+
+describe('timeline rows', () => {
+  it('names a seat that was invited back and held once, not once per round', () => {
+    const held = record({
+      floor: [turn('A'), turn('B'), turn('C', { position: 'oppose' })],
+      convergence: [turn('B'), turn('C', { position: 'oppose' })],
+      requestsSpent: 8,
+      quota: { before: { used: 8, limit: 50, remaining: 42 }, after: { used: 16, limit: 50, remaining: 34 } },
+    })
+    const row = toTimelineRow(held)
+    expect(row.dissent.map((entry) => entry.seat)).toEqual(['C'])
+    expect(row.invited).toBe(2)
+    expect(validateTimelineRecord(row)).toEqual([])
+  })
+
+  it('refuses a row whose shares were edited after it was written', () => {
+    const row = toTimelineRow(record())
+    expect(validateTimelineRecord({ ...row, consensus: 1 })).toEqual(expect.arrayContaining([expect.stringMatching(/consensus/)]))
+  })
+
+  it('refuses a row that names as dissenting a seat holding the leading position', () => {
+    const row = toTimelineRow(record())
+    const errors = validateTimelineRecord({ ...row, dissent: [{ seat: 'A', position: 'support', reason: 'because' }] })
+    expect(errors.join('\n')).toMatch(/dissent\[A\]/)
+  })
+
+  it('refuses a row whose request count does not match its seats and its invited seats', () => {
+    const row = toTimelineRow(record())
+    expect(validateTimelineRecord({ ...row, requestsSpent: 9 }).join('\n')).toMatch(/expected 6 for 3 seats/)
+    expect(validateTimelineRecord({ ...row, invited: 1, requestsSpent: 6 }).join('\n')).toMatch(/expected 7/)
+  })
+
+  it('refuses a row whose unreadable list disagrees with its own count', () => {
+    const row = toTimelineRow(record())
+    expect(validateTimelineRecord({ ...row, unreadable: ['B'] }).join('\n')).toMatch(/unreadable/)
+  })
+
+  it('re-derives a row from the count it carries, the same way a record is re-derived', () => {
+    const row = toTimelineRow(record({ blind: [seat('A'), seat('B'), seat('C', { position: 'unclear' })] }))
+    const recounted = recountTimelineRow(row)
+    expect(recounted.leading).toBe(row.leading)
+    expect(recounted.consensus).toBeCloseTo(row.consensus, 12)
+    expect(recounted.dissentShare).toBeCloseTo(row.dissentShare, 12)
+  })
+
+  it('gives the row of a live session the same check the archive gives a stored one', () => {
+    const row = toTimelineRecord(session())
+    expect(row).not.toBeNull()
+    expect(validateTimelineRow(row)).toEqual([])
+    expect(validateTimelineRecord(row)).toEqual([])
+  })
+})
+
+describe('the archive endpoint', () => {
+  it('copies the contract into the Functions app byte for byte', async () => {
+    execFileSync('node', ['scripts/sync-api-contract.mjs'], { stdio: 'pipe' })
+    const [source, copied] = await Promise.all([
+      readFile('scripts/archive-contract.mjs'),
+      readFile('api/lib/archive-contract.mjs'),
+    ])
+    expect(copied.equals(source)).toBe(true)
+  })
+
+  it('runs the copied contract rather than a second copy of the rule', async () => {
+    const endpoint = await readFile('api/archive/index.js', 'utf8')
+    expect(endpoint).toContain("import('../lib/archive-contract.mjs')")
   })
 })

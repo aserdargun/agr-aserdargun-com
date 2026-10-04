@@ -223,6 +223,39 @@ test('refuses to offer an export for a session that cannot prove its own cost', 
   await expect(page.getByRole('button', { name: 'Download the record' })).toHaveCount(0)
 })
 
+test('files a session that proved its cost, and keeps it on screen when the archive is away', async ({ page }) => {
+  // Every other stub leaves the daily counter where it was, so no session can prove what
+  // it cost and the archive card refuses them all. Here it moves, which is the one thing a
+  // record needs in order to be archivable.
+  let calls = 0
+  await page.route('https://openrouter.ai/api/v1/key', (route) => {
+    calls += 1
+    const used = calls === 1 ? 8 : 20
+    return route.fulfill({ json: { data: { free_model_daily_requests: { used, limit: 50, remaining: 50 - used } } } })
+  })
+
+  await page.goto('/?seats=3')
+  await openWithKey(page)
+  await page.getByLabel('Proposition').fill('The shared record should outlive the browser that made it.')
+  await page.getByRole('button', { name: 'Convene the panel' }).click()
+
+  const card = page.locator('.ag-card').filter({ hasText: 'Archive this session' })
+  const file = card.getByRole('button', { name: 'File it in the shared archive' })
+  await expect(card.getByRole('button', { name: 'Download the record' })).toBeVisible({ timeout: 30000 })
+  await expect(file).toBeVisible()
+
+  // The shared record is read from the archive rather than baked in, and a static preview
+  // has no /api route. That is stated instead of being shown as an empty history.
+  await expect(page.getByText('The shared archive could not be read')).toBeVisible()
+
+  // Filing goes through the site's own /api route, so on a static host it is unreachable.
+  // The session is already saved and already on screen: the archive is an addition, never
+  // a gate, and the failure is reported as a state rather than thrown.
+  await file.click()
+  await expect(card.getByText('The archive could not be reached')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'The count' })).toBeVisible()
+})
+
 test('switches to Turkish and keeps the honesty statement', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Türkçe' }).click()

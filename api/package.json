@@ -1,0 +1,14 @@
+{
+  "name": "agora-archive-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The Agora archive endpoint: validates a record, files it in blob storage, and serves the shared feed.",
+  "main": "archive/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@azure/functions": "4.16.5",
+    "@azure/storage-blob": "12.34.0"
+  }
+}

@@ -30,6 +30,7 @@ import { curateRoster } from '../core/roster'
 import { AgoraApiError, fetchCatalog, fetchQuota, streamChat } from '../core/openrouter'
 import { clearSessions, forgetKey, loadKey, loadSessions, localeFromSearch, saveSession, storeKey } from '../core/archive'
 import { toArchiveRecord, toTimelineRecord, validateForArchive, type TimelineRecord } from '../core/archive-schema'
+import { fetchSharedTimeline, storeRecord, type StoreState } from '../core/cloud-archive'
 import shared from '../data/timeline.generated.json'
 import type { FloorTurn, Locale, Proposal, Quota, Roster, RoundKind, SessionRecord, Vote } from '../core/types'
 
@@ -79,10 +80,38 @@ export default function App() {
   const [panel, setPanel] = useState<SessionRecord['panel']>([])
   const [record, setRecord] = useState<SessionRecord | null>(null)
   const [sessions, setSessions] = useState<SessionRecord[]>(() => loadSessions())
+  const [store, setStore] = useState<StoreState>({ phase: 'idle' })
+  const [feed, setFeed] = useState<{ records: TimelineRecord[]; refused: number } | null>(null)
+  const [feedState, setFeedState] = useState<'loading' | 'live' | 'unreadable'>('loading')
 
   useEffect(() => {
     document.documentElement.lang = locale
   }, [locale])
+
+  // The shared record is read from the archive rather than baked into the bundle, so it is
+  // as current as the last session anyone filed. An unreachable archive leaves it null and
+  // the timeline falls back to what this browser already holds.
+  const readFeed = useCallback((signal?: AbortSignal) => {
+    void fetchSharedTimeline(signal).then((result) => {
+      // An abandoned read is not a failed one, and a failed one empties the feed rather
+      // than leaving rows of unknown age on screen: a shared record that cannot be dated
+      // is not shown as if it were current.
+      if (signal?.aborted) return
+      if (result.ok) {
+        setFeed({ records: result.records, refused: result.refused })
+        setFeedState('live')
+      } else {
+        setFeed(null)
+        setFeedState('unreadable')
+      }
+    })
+  }, [])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    readFeed(controller.signal)
+    return () => controller.abort()
+  }, [readFeed])
 
   useEffect(() => {
     applyTheme(themeChoice)
@@ -121,6 +150,7 @@ export default function App() {
     setFloor([])
     setConvergence([])
     setRecord(null)
+    setStore({ phase: 'idle' })
     setProposals([])
     setClusters([])
     setPicked(null)
@@ -232,6 +262,30 @@ export default function App() {
     download(`agora-${candidate.id}.json`, candidate)
   }, [record])
 
+  /**
+   * Hand the finished session to the shared archive.
+   *
+   * The session is already on screen and already saved in this browser, so this can only
+   * add a copy; a refusal or a failure changes the state of the button and nothing else.
+   */
+  const fileRecord = useCallback(() => {
+    if (!record) return
+    const candidate = toArchiveRecord(record)
+    if (!candidate) {
+      setStore({ phase: 'refused', errors: [text(copy.exportNoQuota, locale)] })
+      return
+    }
+    setStore({ phase: 'storing' })
+    void storeRecord(candidate).then((result) => {
+      if (result.ok) {
+        setStore({ phase: 'stored', id: result.id })
+        readFeed()
+        return
+      }
+      setStore(result.reason === 'refused' ? { phase: 'refused', errors: result.errors } : { phase: 'unreachable' })
+    })
+  }, [locale, readFeed, record])
+
   const archiveProblems = useMemo(() => {
     if (!record) return []
     const candidate = toArchiveRecord(record)
@@ -244,9 +298,15 @@ export default function App() {
   )
   const sharedTimeline = useMemo(() => {
     const base = (shared as { records?: TimelineRecord[] }).records ?? []
-    const ids = new Set(base.map((entry) => entry?.id))
-    return [...base, ...localTimeline.filter((entry) => !ids.has(entry.id))]
-  }, [localTimeline])
+    const ids = new Set<string>()
+    return [...base, ...(feed?.records ?? []), ...localTimeline]
+      .filter((row) => {
+        if (!row || ids.has(row.id)) return false
+        ids.add(row.id)
+        return true
+      })
+      .sort((a, b) => b.finishedAt.localeCompare(a.finishedAt))
+  }, [feed, localTimeline])
 
   const home = `https://aserdargun.com/${locale === 'tr' ? 'tr/' : ''}`
 
@@ -328,11 +388,13 @@ export default function App() {
       <ConvergenceCard locale={locale} trajectory={record?.trajectory ?? null} />
       <VerdictCard locale={locale} record={record} />
 
-      {record ? <ExportCard locale={locale} onExport={exportRecord} problems={archiveProblems} /> : null}
+      {record ? <ExportCard locale={locale} onExport={exportRecord} onStore={fileRecord} store={store} problems={archiveProblems} /> : null}
 
       <Timeline
         locale={locale}
         records={sharedTimeline}
+        feedState={feedState}
+        refused={feed?.refused ?? 0}
         onDebate={(motion) => {
           setMode('given')
           setProposition(motion)

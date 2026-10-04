@@ -23,16 +23,21 @@ const tallyOf = (record: TimelineRecord): Tally => ({
  * count that moved are different facts about the free tier, and neither is a fact about
  * the proposition being true.
  */
-export function Timeline({ locale, records, onDebate }: { locale: Locale; records: TimelineRecord[]; onDebate: (motion: string) => void }) {
-  if (records.length === 0) {
-    return (
-      <section className="ag-card">
-        <h2>{text(copy.timelineHeading, locale)}</h2>
-        <p className="ag-muted">{text(copy.timelineEmpty, locale)}</p>
-      </section>
-    )
-  }
-
+export function Timeline({
+  locale,
+  records,
+  feedState,
+  refused,
+  onDebate,
+}: {
+  locale: Locale
+  records: TimelineRecord[]
+  /** Whether the shared archive answered, is still answering, or could not be reached. */
+  feedState: 'loading' | 'live' | 'unreadable'
+  /** Rows the archive refused on the way out because their own numbers did not add up. */
+  refused: number
+  onDebate: (motion: string) => void
+}) {
   const groups = groupByMotion(records)
   const repeated = groups.filter((group) => group.records.length > 1).length
 
@@ -42,6 +47,15 @@ export function Timeline({ locale, records, onDebate }: { locale: Locale; record
         {text(copy.timelineHeading, locale)} <span className="ag-count">{records.length}</span>
       </h2>
       <p className="ag-muted">{text(copy.timelineNote, locale)}</p>
+      {feedState === 'live' ? <p className="ag-muted">{text(copy.timelineLive, locale)}</p> : null}
+      {feedState === 'unreadable' ? <p className="ag-warn">{text(copy.timelineUnreadable, locale)}</p> : null}
+      {refused > 0 ? (
+        <p className="ag-warn">
+          {locale === 'tr'
+            ? `${refused} satır, kendi sayıları tutmadığı için gösterilmedi.`
+            : `${refused} row${refused === 1 ? '' : 's'} were not shown because their own numbers did not add up.`}
+        </p>
+      ) : null}
       {repeated > 0 ? (
         <p className="ag-muted">
           {locale === 'tr'
@@ -49,6 +63,8 @@ export function Timeline({ locale, records, onDebate }: { locale: Locale; record
             : `${repeated} proposition${repeated === 1 ? '' : 's'} answered by more than one roster.`}
         </p>
       ) : null}
+
+      {groups.length === 0 ? <p className="ag-muted">{text(copy.timelineEmpty, locale)}</p> : null}
 
       {groups.map((group) => (
         <article key={group.motion} className="ag-group">

@@ -8,3 +8,7 @@ playwright-report/
 .env
 .env.*
 !.env.example
+
+# Generated: the archive contract is copied into the Functions app by
+# scripts/sync-api-contract.mjs so the endpoint runs the same rule. Never committed.
+api/lib/

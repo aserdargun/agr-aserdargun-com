@@ -14,7 +14,8 @@
     "test:e2e:production": "AGR_E2E_PRODUCTION=1 playwright test",
     "verify:artifact": "node scripts/release.mjs verify",
     "archive:verify": "node scripts/archive.mjs verify",
-    "archive:build": "node scripts/archive.mjs build"
+    "archive:build": "node scripts/archive.mjs build",
+    "archive:sync-api": "node scripts/sync-api-contract.mjs"
   },
   "dependencies": {
     "@aserdargun/lab-core": "file:vendor/aserdargun-lab-core-0.2.0-fb38c750c230ff3d.tgz",
