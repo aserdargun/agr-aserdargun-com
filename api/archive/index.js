@@ -117,14 +117,17 @@ const file = async (request) => {
   try {
     // `ifNoneMatch: '*'` makes a repeated id an answer rather than an overwrite, which is
     // the same append-only promise the credential itself makes.
+    // The byte length is passed explicitly: the SDK reads a second argument as the content
+    // length, and getting that wrong fails the request rather than the argument.
     await blobs
       .getBlockBlobClient(`${RECORD_PREFIX}${name}.json`)
-      .upload(body, { blobHTTPHeaders: { blobContentType: 'application/json' }, conditions: { ifNoneMatch: '*' } })
+      .upload(body, body.byteLength, { blobHTTPHeaders: { blobContentType: 'application/json' }, conditions: { ifNoneMatch: '*' } })
   } catch (error) {
     if (error?.statusCode !== 409) throw error
     return json(200, { id: record.id, storedAt, alreadyStored: true })
   }
-  await (await index()).appendBlock(Buffer.from(`${JSON.stringify(row)}\n`, 'utf8'))
+  const line = Buffer.from(`${JSON.stringify(row)}\n`, 'utf8')
+  await (await index()).appendBlock(line, line.byteLength)
 
   return json(201, { id: record.id, storedAt })
 }
