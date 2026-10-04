@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { curateRoster } from '../src/core/roster'
+import { curateRoster, selectPanelMembers } from '../src/core/roster'
 
 const member = (id: string, extra: Record<string, unknown> = {}) => ({
   id,
@@ -77,5 +77,64 @@ describe('curateRoster', () => {
   it('survives a malformed payload without throwing', () => {
     expect(curateRoster(null, '2026-10-04')).toEqual({ members: [], excluded: [], observedAt: '2026-10-04' })
     expect(curateRoster({ data: 'nope' }, '2026-10-04').members).toEqual([])
+  })
+})
+
+
+describe('selectPanelMembers', () => {
+  const model = (id: string, overrides: Record<string, unknown> = {}) => ({
+    id,
+    context_length: 262144,
+    supported_parameters: ['max_tokens'],
+    architecture: { output_modalities: ['text'] },
+    top_provider: { max_completion_tokens: 8192, is_moderated: false },
+    ...overrides,
+  })
+
+  const seat = (payload: { data: unknown[] }) => curateRoster(payload, '2026-10-04').members
+
+  it('does not fall back to alphabetical order, which seated the smallest models first', () => {
+    // "apodex" and "cohere" sort before the Nemotron entries, so the old rule always
+    // chose the first two here.
+    const members = seat({
+      data: [
+        model('apodex/apodex-1.1-mini:free', { context_length: 16384 }),
+        model('cohere/north-mini-code:free', { context_length: 16384 }),
+        model('nvidia/nemotron-3-ultra-550b-a55b:free', {
+          context_length: 1000000,
+          supported_parameters: ['max_tokens', 'structured_outputs'],
+        }),
+      ],
+    })
+
+    expect(members.map((entry) => entry.slug)).toEqual([
+      'apodex/apodex-1.1-mini',
+      'cohere/north-mini-code',
+      'nvidia/nemotron-3-ultra-550b-a55b',
+    ])
+    expect(selectPanelMembers(members, 2).map((entry) => entry.slug)).toEqual([
+      'nvidia/nemotron-3-ultra-550b-a55b',
+      'apodex/apodex-1.1-mini',
+    ])
+  })
+
+  it('prefers a member that can return the requested shape over a larger one that cannot', () => {
+    const members = seat({
+      data: [
+        model('big/quiet:free', { context_length: 1000000 }),
+        model('small/shaped:free', { context_length: 16384, supported_parameters: ['max_tokens', 'response_format'] }),
+      ],
+    })
+    expect(selectPanelMembers(members, 1).map((entry) => entry.slug)).toEqual(['small/shaped'])
+  })
+
+  it('is stable for the same roster, so a verdict is always compared like for like', () => {
+    const members = seat({ data: [model('b/one:free'), model('a/two:free'), model('c/three:free')] })
+    expect(selectPanelMembers(members, 2)).toEqual(selectPanelMembers(members, 2))
+  })
+
+  it('never returns more seats than the roster holds', () => {
+    const members = seat({ data: [model('a/one:free')] })
+    expect(selectPanelMembers(members, 5)).toHaveLength(1)
   })
 })

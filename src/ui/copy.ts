@@ -126,6 +126,10 @@ export const copy = {
   },
   timelineEmpty: { en: 'No verdict has been filed yet.', tr: 'Henüz kaydedilmiş bir karar yok.' },
   mySessions: { en: 'Your sessions in this browser', tr: 'Bu tarayıcıdaki oturumlarınız' },
+  mySessionsEmpty: {
+    en: 'No session has been run in this browser yet.',
+    tr: 'Bu tarayıcıda henüz bir oturum koşulmadı.',
+  },
 
   clearArchive: { en: 'Clear', tr: 'Temizle' },
   reask: { en: 'Debate this again', tr: 'Bunu tekrar tartış' },

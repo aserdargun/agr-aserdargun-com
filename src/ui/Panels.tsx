@@ -17,6 +17,7 @@ import {
 } from '../core/types'
 import type { Cluster } from '../core/engine'
 import { copy, text } from './copy'
+import { selectionRule } from '../core/roster'
 
 const percent = (value: number): string => `${Math.round(value * 100)}%`
 const positionClass = (position: Position): string => `ag-pos ag-pos-${position}`
@@ -144,6 +145,7 @@ export function RosterPanel({ locale, roster }: { locale: Locale; roster: Roster
       <p className="ag-muted">
         {shaped.length}/{roster.members.length} — {text(copy.structuredOnly, locale)}
       </p>
+      <p className="ag-muted ag-small">{selectionRule[locale]}</p>
 
       {roster.excluded.length > 0 ? (
         <>
@@ -575,7 +577,7 @@ export function SessionList({
         {text(copy.mySessions, locale)} <span className="ag-count">{sessions.length}</span>
       </h2>
       {sessions.length === 0 ? (
-        <p className="ag-muted">{text(copy.timelineEmpty, locale)}</p>
+        <p className="ag-muted">{text(copy.mySessionsEmpty, locale)}</p>
       ) : (
         <>
           <ol className="ag-archive">

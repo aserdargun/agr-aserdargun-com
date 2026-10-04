@@ -100,5 +100,33 @@ export const curateRoster = (payload: unknown, observedAt: string): Roster => {
   return { members, excluded, observedAt }
 }
 
+/**
+ * Choose which members are seated.
+ *
+ * Selection used to be the first N entries in catalogue order, which is alphabetical and
+ * therefore arbitrary: Agora was reliably seating the smallest available models because
+ * their slugs happened to sort first. The rule below is declared rather than tuned, and
+ * is shown in the interface so the panel is never an accident.
+ *
+ * A member that can return the requested shape is preferred, because a model that answers
+ * in prose has to be read by guesswork. After that a larger context window is preferred,
+ * since the floor round has to hold the whole exchange. Ties fall back to the slug so the
+ * same roster always seats the same panel.
+ */
+export const selectPanelMembers = (members: RosterEntry[], seatCount: number): RosterEntry[] =>
+  [...members]
+    .sort((a, b) => {
+      const shape = Number(b.supports.responseFormat || b.supports.structuredOutputs) - Number(a.supports.responseFormat || a.supports.structuredOutputs)
+      if (shape !== 0) return shape
+      if (b.contextLength !== a.contextLength) return b.contextLength - a.contextLength
+      return a.slug.localeCompare(b.slug)
+    })
+    .slice(0, seatCount)
+
+export const selectionRule = {
+  en: 'Seats are filled by a declared rule: members that can return the requested JSON shape first, then the larger context window, then the slug. The catalogue order is alphabetical and is not used to choose.',
+  tr: 'Koltuklar ilan edilmiş bir kuralla doldurulur: istenen JSON biçimini döndürebilen üyeler önce, sonra daha geniş bağlam penceresi, sonra slug. Katalog sırası alfabetiktir ve seçimde kullanılmaz.',
+}
+
 export const exclusionReason = (excluded: ExcludedEntry[], id: string, locale: Locale): string =>
   t(excluded.find((entry) => entry.id === id)?.reason, locale)

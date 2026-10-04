@@ -64,6 +64,8 @@
 .ag-row input,
 .ag-card textarea,
 .ag-card label input {
+  display: block;
+  width: 100%;
   flex: 1 1 14rem;
   min-width: 0;
   font: inherit;

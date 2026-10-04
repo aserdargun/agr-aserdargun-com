@@ -14,6 +14,7 @@ import type {
 } from './types'
 import { AGREEMENT_THRESHOLD, SEAT_LABELS } from './types'
 import { readAddressed, readProposal, readVote } from './parse'
+import { selectPanelMembers } from './roster'
 import {
   AGENDA_PROMPT_EN,
   AGENDA_PROMPT_TR,
@@ -31,7 +32,7 @@ export interface Proposition {
 }
 
 export const buildPanel = (members: RosterEntry[], seatCount: number): PanelSeat[] =>
-  members.slice(0, seatCount).map((member, index) => ({
+  selectPanelMembers(members, seatCount).map((member, index) => ({
     label: SEAT_LABELS[index] ?? `S${index + 1}`,
     member,
   }))
