@@ -120,27 +120,54 @@ const openWithKey = async (page: import('@playwright/test').Page) => {
   await page.getByRole('button', { name: 'Save and check quota' }).click()
 }
 
+/**
+ * Open a section.
+ *
+ * The app is tabbed, and a session opens on its own outcome when it finishes. A test that
+ * wants the transcript has to ask for it, the same way a visitor would.
+ */
+const useTab = async (page: import('@playwright/test').Page, name: string) => {
+  await page.getByRole('tab', { name }).click()
+}
+
 test.beforeEach(async ({ page }) => {
   await stubOpenRouter(page)
 })
 
 test('seats only models that can hold a position, and says why the rest are off', async ({ page }) => {
   await page.goto('/')
+  await useTab(page, 'Roster')
 
   await expect(page.getByRole('heading', { name: 'This week’s roster' })).toBeVisible()
-  await expect(page.getByText('nemotron-3-super-120b-a12b')).toBeVisible()
+  // Scoped to the roster: a seated model is also named in the setup, before any run.
+  await expect(page.locator('.ag-roster').getByText('nemotron-3-super-120b-a12b')).toBeVisible()
   await expect(page.getByText('Left off the panel')).toBeVisible()
   await expect(page.getByText('content-safety classifier', { exact: false })).toBeVisible()
+})
+
+test('shows which models the chosen seat count will call, before anything is spent', async ({ page }) => {
+  await page.goto('/?seats=3')
+  await openWithKey(page)
+
+  // The roster and the seat count are the same decision, so the seated panel is shown with
+  // the setup rather than only after a session has already been paid for.
+  const seated = page.locator('.ag-seated-list li')
+  await expect(seated).toHaveCount(3)
+  await expect(seated.first()).toContainText('nemotron-3-super-120b-a12b')
+  await expect(page.getByRole('tab', { name: 'Outcome' })).toHaveAttribute('aria-selected', 'false')
 })
 
 test('quotes a cost range instead of a single number, because the final round is conditional', async ({ page }) => {
   await page.goto('/?seats=3')
   await openWithKey(page)
 
-  await expect(page.getByText('42')).toBeVisible()
+  await expect(page.locator('.ag-quota-chip').getByText('42')).toBeVisible()
   await expect(page.getByText('requests left')).toBeVisible()
-  await expect(page.getByText('This run costs')).toBeVisible()
-  await expect(page.getByText('6–9')).toBeVisible()
+  // Scoped to the run row: the seat choices each carry their own cost, and 6–9 appears in
+  // both places once three seats are selected.
+  const run = page.locator('.ag-runrow')
+  await expect(run.getByText('This run costs')).toBeVisible()
+  await expect(run.getByText('6–9')).toBeVisible()
 })
 
 test('runs three rounds and shows who answered whom', async ({ page }) => {
@@ -148,6 +175,7 @@ test('runs three rounds and shows who answered whom', async ({ page }) => {
   await openWithKey(page)
   await page.getByLabel('Proposition').fill('Static types are worth their cost in a small codebase.')
   await page.getByRole('button', { name: 'Convene the panel' }).click()
+  await useTab(page, 'Transcript')
 
   await expect(page.getByRole('heading', { name: 'First round · every seat answers alone' })).toBeVisible({ timeout: 30000 })
   await expect(page.getByRole('heading', { name: 'Second round · seats answer each other' })).toBeVisible()
@@ -158,11 +186,29 @@ test('runs three rounds and shows who answered whom', async ({ page }) => {
   await expect(link).toHaveText('A')
 })
 
+test('opens the outcome when the session ends, and keeps the argument one click away', async ({ page }) => {
+  await page.goto('/?seats=3')
+  await openWithKey(page)
+  await page.getByLabel('Proposition').fill('Static types are worth their cost in a small codebase.')
+  await page.getByRole('button', { name: 'Convene the panel' }).click()
+
+  // The count is what the session was run for, so the finished session lands on it rather
+  // than leaving a visitor to hunt for it below a full transcript.
+  await expect(page.getByRole('tab', { name: 'Outcome' })).toHaveAttribute('aria-selected', 'true', { timeout: 30000 })
+  await expect(page.getByRole('heading', { name: 'The outcome, in one paragraph' })).toBeVisible()
+  // Scoped to the summary: the archive restates the same sentence for every filed session.
+  await expect(page.locator('.ag-summary').getByText('The panel leaned toward supporting the proposition')).toBeVisible()
+
+  await useTab(page, 'Transcript')
+  await expect(page.getByRole('heading', { name: 'Second round · seats answer each other' })).toBeVisible()
+})
+
 test('reports convergence on a declared bar, and names the seat that held', async ({ page }) => {
   await page.goto('/?seats=3')
   await openWithKey(page)
   await page.getByLabel('Proposition').fill('Static types are worth their cost in a small codebase.')
   await page.getByRole('button', { name: 'Convene the panel' }).click()
+  await useTab(page, 'Outcome')
 
   const card = page.locator('.ag-convergence')
   await expect(card).toBeVisible({ timeout: 30000 })
@@ -177,10 +223,11 @@ test('lets the panel choose its own topic and groups similar proposals', async (
   await openWithKey(page)
   await page.getByRole('button', { name: 'The panel chooses' }).click()
   await page.getByRole('button', { name: 'Convene the panel' }).click()
+  await useTab(page, 'Transcript')
 
   await expect(page.getByRole('heading', { name: 'The panel proposes' })).toBeVisible({ timeout: 30000 })
   // Scope to the agenda card: once the session runs, the chosen proposition also appears
-  // in the timeline and the session list, so an unscoped locator would be ambiguous.
+  // in the archive and the session list, so an unscoped locator would be ambiguous.
   const agenda = page.locator('.ag-agenda')
   await expect(agenda.getByText('Strong typing prevents whole classes of bugs')).toBeVisible()
   await expect(agenda.getByText('Static types prevent whole classes of bugs')).toBeVisible()
@@ -203,6 +250,7 @@ test('marks a prose answer as non-compliant instead of hiding it', async ({ page
   await openWithKey(page)
   await page.getByLabel('Proposition').fill('Anything debatable at all.')
   await page.getByRole('button', { name: 'Convene the panel' }).click()
+  await useTab(page, 'Transcript')
 
   await expect(page.getByText('answered in prose').first()).toBeVisible({ timeout: 30000 })
 })
@@ -217,6 +265,7 @@ test('refuses to offer an export for a session that cannot prove its own cost', 
   await openWithKey(page)
   await page.getByLabel('Proposition').fill('A proposition long enough to pass validation.')
   await page.getByRole('button', { name: 'Convene the panel' }).click()
+  await useTab(page, 'Outcome')
 
   await expect(page.getByRole('heading', { name: 'Archive this session' })).toBeVisible({ timeout: 30000 })
   await expect(page.getByText('does not prove its own cost')).toBeVisible()
@@ -238,6 +287,7 @@ test('files a session that proved its cost, and keeps it on screen when the arch
   await openWithKey(page)
   await page.getByLabel('Proposition').fill('The shared record should outlive the browser that made it.')
   await page.getByRole('button', { name: 'Convene the panel' }).click()
+  await useTab(page, 'Outcome')
 
   const card = page.locator('.ag-card').filter({ hasText: 'Archive this session' })
   const file = card.getByRole('button', { name: 'File it in the shared archive' })
@@ -246,11 +296,13 @@ test('files a session that proved its cost, and keeps it on screen when the arch
 
   // The shared record is read from the archive rather than baked in, and a static preview
   // has no /api route. That is stated instead of being shown as an empty history.
+  await useTab(page, 'Archive')
   await expect(page.getByText('The shared archive could not be read')).toBeVisible()
 
   // Filing goes through the site's own /api route, so on a static host it is unreachable.
   // The session is already saved and already on screen: the archive is an addition, never
   // a gate, and the failure is reported as a state rather than thrown.
+  await useTab(page, 'Outcome')
   await file.click()
   await expect(card.getByText('The archive could not be reached')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'The count' })).toBeVisible()
@@ -259,6 +311,7 @@ test('files a session that proved its cost, and keeps it on screen when the arch
 test('switches to Turkish and keeps the honesty statement', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Türkçe' }).click()
+  await useTab(page, 'Kadro')
 
   await expect(page.getByRole('heading', { name: 'Bu haftanın kadrosu' })).toBeVisible()
   await expect(page.getByText('Panelin dışında')).toBeVisible()
@@ -267,6 +320,7 @@ test('switches to Turkish and keeps the honesty statement', async ({ page }) => 
 test('works on a phone viewport', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/')
+  await useTab(page, 'Roster')
 
   await expect(page.getByRole('heading', { name: 'This week’s roster' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Türkçe' })).toBeVisible()

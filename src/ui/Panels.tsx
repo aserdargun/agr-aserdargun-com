@@ -24,6 +24,24 @@ import { selectionRule } from '../core/roster'
 const percent = (value: number): string => `${Math.round(value * 100)}%`
 const positionClass = (position: Position): string => `ag-pos ag-pos-${position}`
 
+/** What a running session has already produced, used to show progress without guessing. */
+export type LiveStage = 'agenda' | 'blind' | 'floor' | 'convergence'
+
+export interface LiveAnswer {
+  stage: LiveStage
+  seat: string
+  /** The request ended, but not with a readable position. */
+  failed: boolean
+}
+
+export interface LiveProgress {
+  stage: LiveStage | null
+  /** Seat labels whose request has been dispatched, in the current stage. */
+  called: string[]
+  /** Every request that came back, with the stage it belonged to. */
+  answers: LiveAnswer[]
+}
+
 export function LocaleToggle({ locale, onChange }: { locale: Locale; onChange: (next: Locale) => void }) {
   return (
     <div className="ag-locale" role="group" aria-label="Language">
@@ -58,6 +76,13 @@ export function ThemeToggle({
   )
 }
 
+/**
+ * The key, and only the key.
+ *
+ * A saved key collapses to one line, because a password field is not what a visitor came
+ * back for: the setup tab is where the proposition and the seat count live. The field is
+ * never destroyed by saving it, so a visitor who mistypes can correct it without reloading.
+ */
 export function KeyGate({
   locale,
   value,
@@ -66,6 +91,7 @@ export function KeyGate({
   onForget,
   checking,
   error,
+  saved,
 }: {
   locale: Locale
   value: string
@@ -74,9 +100,33 @@ export function KeyGate({
   onForget: () => void
   checking: boolean
   error: string | null
+  saved: boolean
 }) {
+  const [open, setOpen] = useState(!saved)
+
+  if (saved && !open) {
+    return (
+      <section className="ag-card ag-keyline">
+        <p className="ag-muted">{text(copy.keySaved, locale)}</p>
+        <div className="ag-row">
+          <button type="button" className="ag-ghost" onClick={() => setOpen(true)}>
+            {text(copy.keyChange, locale)}
+          </button>
+          <button type="button" className="ag-ghost" onClick={onForget}>
+            {text(copy.keyForget, locale)}
+          </button>
+        </div>
+        {error ? (
+          <p className="ag-error" role="alert">
+            {error}
+          </p>
+        ) : null}
+      </section>
+    )
+  }
+
   return (
-    <section className="ag-card" id="panel">
+    <section className="ag-card">
       <h2>{text(copy.keyHeading, locale)}</h2>
       <p className="ag-muted">{text(copy.keyWhy, locale)}</p>
       <div className="ag-row">
@@ -92,9 +142,11 @@ export function KeyGate({
         <button type="button" onClick={onSave} disabled={checking || value.trim().length === 0}>
           {checking ? '…' : text(copy.keySave, locale)}
         </button>
-        <button type="button" className="ag-ghost" onClick={onForget} disabled={value.length === 0}>
-          {text(copy.keyForget, locale)}
-        </button>
+        {value.length > 0 ? (
+          <button type="button" className="ag-ghost" onClick={onForget} disabled={value.length === 0}>
+            {text(copy.keyForget, locale)}
+          </button>
+        ) : null}
       </div>
       {error ? (
         <p className="ag-error" role="alert">
@@ -105,31 +157,33 @@ export function KeyGate({
   )
 }
 
-export function QuotaMeter({ locale, quota }: { locale: Locale; quota: Quota | null }) {
+/**
+ * The daily free quota, as a chip in the tab bar.
+ *
+ * It used to be a card of its own, which meant a visitor who was reading a session had to
+ * come back to the setup to find out whether another one was affordable. Budget is not a
+ * result and not a step, so it lives in the chrome and stays visible from every section.
+ */
+export function QuotaChip({ locale, quota }: { locale: Locale; quota: Quota | null }) {
   const used = quota ? Math.min(quota.used, quota.limit) : 0
   const ratio = quota && quota.limit > 0 ? used / quota.limit : 0
 
   return (
-    <section className="ag-card">
-      <h2>{text(copy.quotaHeading, locale)}</h2>
+    <p className="ag-quota-chip">
+      <span className="ag-eyebrow">{text(copy.quotaHeading, locale)}</span>
       {!quota ? (
-        <p className="ag-muted">{text(copy.quotaUnknown, locale)}</p>
+        <span className="ag-muted">{text(copy.quotaChipUnknown, locale)}</span>
       ) : (
         <>
-          <p className="ag-quota">
-            <strong>{quota.remaining}</strong> {locale === 'tr' ? 'istek kaldı' : 'requests left'}
-            <span className="ag-muted">
-              {' '}
-              ({used}/{quota.limit})
-            </span>
-          </p>
-          <div className="ag-meter" role="img" aria-label={`${Math.round(ratio * 100)}%`}>
+          <span className="ag-quota">
+            <strong>{quota.remaining}</strong> {text(copy.quotaLeftToday, locale)}
+          </span>
+          <span className="ag-meter" role="img" aria-label={`${Math.round(ratio * 100)}%`}>
             <span style={{ width: `${Math.max(2, ratio * 100)}%` }} />
-          </div>
+          </span>
         </>
       )}
-      <p className="ag-muted">{text(copy.quotaNote, locale)}</p>
-    </section>
+    </p>
   )
 }
 
@@ -188,13 +242,21 @@ export function RosterPanel({ locale, roster }: { locale: Locale; roster: Roster
   )
 }
 
+/**
+ * The setup: what to argue about, and how many models argue it.
+ *
+ * Seat count moved from a number field to a row of choices, because the number is not the
+ * only thing being chosen — each choice carries the requests it will spend, and the free
+ * tier is the reason the panel is small. A spinner hid both of those behind a value.
+ */
 export function TopicPicker({
   locale,
   mode,
   proposition,
   context,
   seatCount,
-  available,
+  seatChoices,
+  panel,
   running,
   onMode,
   onProposition,
@@ -207,7 +269,8 @@ export function TopicPicker({
   proposition: string
   context: string
   seatCount: number
-  available: number
+  seatChoices: number[]
+  panel: PanelSeat[]
   running: boolean
   onMode: (next: 'given' | 'panel') => void
   onProposition: (next: string) => void
@@ -250,18 +313,43 @@ export function TopicPicker({
         </>
       )}
 
-      <div className="ag-row">
-        <label className="ag-inline">
-          {text(copy.seatsLabel, locale)}
-          <input
-            type="number"
-            min={2}
-            max={Math.max(2, available)}
-            value={seatCount}
-            onChange={(event) => onSeats(Number(event.target.value))}
-            aria-label={text(copy.seatsLabel, locale)}
-          />
-        </label>
+      <h3>{text(copy.seatsQuestion, locale)}</h3>
+      <div className="ag-seatpick" role="group" aria-label={text(copy.seatsQuestion, locale)}>
+        {seatChoices.map((choice) => {
+          const price = estimateRequests(choice, { agenda: mode === 'panel' })
+          return (
+            <button
+              key={choice}
+              type="button"
+              className="ag-seatchoice"
+              aria-pressed={seatCount === choice}
+              onClick={() => onSeats(choice)}
+            >
+              <strong>{choice}</strong>
+              <em>
+                {price.min}–{price.max}
+              </em>
+            </button>
+          )
+        })}
+        <span className="ag-muted ag-small ag-seatpick-note">{text(copy.seatsPerChoice, locale)}</span>
+      </div>
+
+      {panel.length > 0 ? (
+        <div className="ag-seated">
+          <p className="ag-muted ag-small">{text(copy.seatedFor, locale)}</p>
+          <ul className="ag-seated-list">
+            {panel.map((seat) => (
+              <li key={seat.label}>
+                <span className="ag-seat-label">{seat.label}</span>
+                <span className="ag-slug">{seat.member.slug}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      <div className="ag-row ag-runrow">
         <span className="ag-muted">
           {text(copy.willCost, locale)}{' '}
           <strong>
@@ -273,6 +361,119 @@ export function TopicPicker({
           {running ? text(copy.running, locale) : text(copy.run, locale)}
         </button>
       </div>
+      <p className="ag-muted ag-small">{text(copy.runCostNote, locale)}</p>
+    </section>
+  )
+}
+
+/**
+ * The panel, mid-sentence.
+ *
+ * A five-seat session spends ten to fifteen requests over roughly a minute, and until now
+ * the screen said only "in session". Every entry here is a request that was actually
+ * dispatched or actually answered, so the wait shows the panel working rather than a timer
+ * that guesses at it.
+ */
+export function RunProgress({
+  locale,
+  progress,
+  panel,
+}: {
+  locale: Locale
+  progress: LiveProgress
+  panel: PanelSeat[]
+}) {
+  if (!progress.stage) return null
+  const stage = progress.stage
+  const done = (seat: string) => progress.answers.find((answer) => answer.stage === stage && answer.seat === seat)
+  const answered = seatsFor(progress, panel).filter((seat) => done(seat.label)).length
+  const backs = stage === 'convergence'
+  // The final round is only spent on the seats that held out, so a seat nobody called back
+  // is not waiting on anything and must not be shown as if it were.
+  const seats = seatsFor(progress, panel)
+
+  return (
+    <section className="ag-card ag-live-card">
+      <h2>
+        {text(copy.progressHeading, locale)} <span className="ag-live" aria-hidden="true" />
+      </h2>
+      <p className="ag-muted">
+        {stage === 'agenda' ? text(copy.roundAgenda, locale) : roundHeading(stage, locale)}
+        {backs ? ` · ${text(copy.backAgain, locale)}` : ''}
+      </p>
+      <p className="ag-quota">
+        <strong>
+          {answered}/{seats.length}
+        </strong>{' '}
+        {text(copy.answeredCount, locale)}
+      </p>
+      <ul className="ag-ticker">
+        {seats.map((seat) => {
+          const answer = done(seat.label)
+          const state = answer ? (answer.failed ? 'ag-tick-failed' : 'ag-ticked') : 'ag-tick-waiting'
+          return (
+            <li key={seat.label} className={state}>
+              <span className="ag-seat-label">{seat.label}</span>
+              <span className="ag-muted ag-small">
+                {answer
+                  ? answer.failed
+                    ? text(copy.progressFailed, locale)
+                    : text(copy.answeredCount, locale)
+                  : text(copy.pending, locale)}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
+
+/** The seats this stage is actually waiting on. */
+const seatsFor = (progress: LiveProgress, panel: PanelSeat[]): PanelSeat[] =>
+  progress.stage === 'convergence' && progress.called.length > 0
+    ? panel.filter((seat) => progress.called.includes(seat.label))
+    : panel
+
+/** The last session, reduced to the line a returning visitor needs to find it. */
+export function SessionStrip({
+  locale,
+  record,
+  onOpenOutcome,
+  onReadTranscript,
+}: {
+  locale: Locale
+  record: SessionRecord
+  onOpenOutcome: () => void
+  onReadTranscript: () => void
+}) {
+  const { tally } = record.verdict
+  return (
+    <section className="ag-card ag-strip">
+      <p className="ag-eyebrow">{text(copy.lastSession, locale)}</p>
+      <p className="ag-strip-motion">{record.motion}</p>
+      <p className="ag-muted">
+        <span className={positionClass(tally.leading)}>{text(copy.positionLabel[tally.leading], locale)}</span> ·{' '}
+        {text(copy.agreement, locale)} <strong>{percent(tally.consensus)}</strong> · {record.requestsSpent}{' '}
+        {text(copy.requests, locale)}
+      </p>
+      <div className="ag-row">
+        <button type="button" onClick={onOpenOutcome}>
+          {text(copy.openOutcome, locale)}
+        </button>
+        <button type="button" className="ag-ghost" onClick={onReadTranscript}>
+          {text(copy.readTranscript, locale)}
+        </button>
+      </div>
+    </section>
+  )
+}
+
+/** An empty section says what will fill it, rather than showing a blank page. */
+export function EmptyState({ note }: { note: string }) {
+  return (
+    <section className="ag-card ag-empty">
+      <p className="ag-muted">{note}</p>
     </section>
   )
 }
@@ -424,8 +625,17 @@ export function Discussion({
 
   return (
     <section className="ag-card">
+      {rounds.length > 1 ? (
+        <nav className="ag-roundnav" aria-label={text(copy.roundsNavLabel, locale)}>
+          {rounds.map(({ kind }, index) => (
+            <a key={kind} href={`#round-${kind}`}>
+              <span className="ag-muted">{index + 1}</span> {roundHeading(kind, locale).split('·')[0].trim()}
+            </a>
+          ))}
+        </nav>
+      ) : null}
       {rounds.map(({ kind, entries, showChanged }) => (
-        <div key={kind} className="ag-round">
+        <div key={kind} className="ag-round" id={`round-${kind}`}>
           <h2>
             {roundHeading(kind, locale)}
             {active === kind ? <span className="ag-live" /> : null}
@@ -508,14 +718,38 @@ export function ConvergenceCard({ locale, trajectory }: { locale: Locale; trajec
   )
 }
 
-export function VerdictCard({ locale, record }: { locale: Locale; record: SessionRecord | null }) {
+/**
+ * The outcome: what was asked, who sat, what the count came to, in prose.
+ *
+ * The prose summary comes before the bars, because a visitor who came here to learn the
+ * result should not have to read a stacked bar chart to find it. The bars are the evidence
+ * for the sentence, not the other way round. The summary is generated from the stored count
+ * by `verdictText`, so no panelist writes the paragraph that reports their own vote.
+ */
+export function OutcomeCard({ locale, record }: { locale: Locale; record: SessionRecord | null }) {
   if (!record) return null
   const { tally } = record.verdict
   const seatCount = Math.max(1, record.panel.length)
 
   return (
     <section className="ag-card ag-verdict">
-      <h2>{text(copy.verdictHeading, locale)}</h2>
+      <p className="ag-eyebrow">{text(copy.outcomeEyebrow, locale)}</p>
+      <h2 className="ag-motion">{record.motion}</h2>
+      <p className="ag-muted ag-small">
+        {text(copy.outcomeModels, locale)}:{' '}
+        <span className="ag-history-seats">
+          {record.panel.map((seat) => `${seat.label} ${seat.member.slug.replace(':free', '')}`).join(' · ')}
+        </span>
+      </p>
+
+      {record.verdict.synthesis ? (
+        <>
+          <h3>{text(copy.summaryHeading, locale)}</h3>
+          <p className="ag-summary">{record.verdict.synthesis}</p>
+        </>
+      ) : null}
+
+      <h3>{text(copy.verdictHeading, locale)}</h3>
       <ul className="ag-tally">
         {(['support', 'oppose', 'abstain', 'unclear'] as Position[]).map((position) => (
           <li key={position}>
@@ -545,8 +779,7 @@ export function VerdictCard({ locale, record }: { locale: Locale; record: Sessio
             ))}
         </ul>
       )}
-      <p className="ag-muted">{text(copy.tallyNote, locale)}</p>
-      {record.verdict.synthesis ? <p className="ag-summary">{record.verdict.synthesis}</p> : null}
+      <p className="ag-muted ag-small">{text(copy.tallyNote, locale)}</p>
     </section>
   )
 }
@@ -611,11 +844,13 @@ export function SessionList({
   locale,
   sessions,
   onReask,
+  onRead,
   onClear,
 }: {
   locale: Locale
   sessions: SessionRecord[]
   onReask: (motion: string) => void
+  onRead: (session: SessionRecord) => void
   onClear: () => void
 }) {
   const [open, setOpen] = useState<string | null>(null)
@@ -649,9 +884,14 @@ export function SessionList({
                         ? `${session.quota.after.remaining} ${locale === 'tr' ? 'kaldı' : 'left'}`
                         : '—'}
                     </p>
-                    <button type="button" onClick={() => onReask(session.motion)}>
-                      {text(copy.reask, locale)}
-                    </button>
+                    <div className="ag-row">
+                      <button type="button" onClick={() => onRead(session)}>
+                        {text(copy.openOutcome, locale)}
+                      </button>
+                      <button type="button" className="ag-ghost" onClick={() => onReask(session.motion)}>
+                        {text(copy.reask, locale)}
+                      </button>
+                    </div>
                   </div>
                 ) : null}
               </li>

@@ -6,6 +6,23 @@ export const copy = {
   title: { en: 'Agora', tr: 'Agora' },
   familyMark: { en: 'aserdargun.com · Agora', tr: 'aserdargun.com · Agora' },
   skipToPanel: { en: 'Skip to the panel', tr: 'Panele geç' },
+
+  /* The five sections. The tab bar is the whole navigation, so these names have to say
+     what a section contains rather than where it sits. */
+  tablistLabel: { en: 'Sections', tr: 'Bölümler' },
+  tabPanel: { en: 'Panel', tr: 'Panel' },
+  tabOutcome: { en: 'Outcome', tr: 'Sonuç' },
+  tabTranscript: { en: 'Transcript', tr: 'Tartışma' },
+  tabArchive: { en: 'Archive', tr: 'Arşiv' },
+  tabRoster: { en: 'Roster', tr: 'Kadro' },
+  tabOutcomeHint: {
+    en: 'No session yet — the count lands here once the panel has answered.',
+    tr: 'Henüz oturum yok — panel yanıtladığında sayım buraya düşer.',
+  },
+  tabTranscriptHint: {
+    en: 'The full argument appears here: every seat, every round, and who answered whom.',
+    tr: 'Tüm tartışma burada: her koltuk, her tur ve kimin kime cevap verdiği.',
+  },
   themeLight: { en: 'Light', tr: 'Açık' },
   themeDark: { en: 'Dark', tr: 'Koyu' },
   themeToLight: { en: 'Use the light theme', tr: 'Açık temayı kullan' },
@@ -31,6 +48,13 @@ export const copy = {
     tr: 'Dakikada 20, UTC gününde 50 istek. Koltuk başına iki istek, öne çıkan konuma katılmayı reddeden her koltuk için bir istek daha, konuyu panel seçerse bir gündem turu.',
   },
   quotaUnknown: { en: 'Enter a key to read your quota.', tr: 'Kotanı görmek için anahtar gir.' },
+  quotaChipUnknown: { en: 'quota unknown', tr: 'kota bilinmiyor' },
+  // The unit is spelled out rather than left to the eyebrow: a bare number with a bar
+  // above it reads as a percentage somewhere else in the family.
+  quotaLeftToday: { en: 'requests left', tr: 'istek kaldı' },
+
+  keySaved: { en: 'Your key is saved in this browser.', tr: 'Anahtarın bu tarayıcıda saklanıyor.' },
+  keyChange: { en: 'Change the key', tr: 'Anahtarı değiştir' },
 
   rosterHeading: { en: 'This week’s roster', tr: 'Bu haftanın kadrosu' },
   rosterNote: {
@@ -59,12 +83,38 @@ export const copy = {
   },
   contextLabel: { en: 'Context (optional)', tr: 'Bağlam (isteğe bağlı)' },
   seatsLabel: { en: 'Seats', tr: 'Koltuk' },
+  seatsQuestion: { en: 'How many models sit on the panel?', tr: 'Panelde kaç model otursun?' },
+  seatsPerChoice: { en: 'seats · requests', tr: 'koltuk · istek' },
+  seatedFor: {
+    en: 'These seats will be called, in this order. Model names appear here and never in a prompt.',
+    tr: 'Bu koltuklar bu sırayla çağrılacak. Model adları burada görünür, hiçbir istemde görünmez.',
+  },
   willCost: { en: 'This run costs', tr: 'Bu koşu harcar' },
   requests: { en: 'requests', tr: 'istek' },
   costRange: { en: 'at least', tr: 'en az' },
   run: { en: 'Convene the panel', tr: 'Paneli topla' },
   running: { en: 'In session…', tr: 'Oturum sürüyor…' },
   needKey: { en: 'Save a key first.', tr: 'Önce bir anahtar kaydet.' },
+
+  progressHeading: { en: 'The panel is answering', tr: 'Panel yanıtlıyor' },
+  answeredCount: { en: 'answered', tr: 'cevapladı' },
+  pending: { en: 'waiting', tr: 'bekliyor' },
+  progressFailed: { en: 'could not be read', tr: 'okunamadı' },
+  backAgain: { en: 'only the seats that disagreed are called back', tr: 'yalnızca karşı çıkan koltuklar geri çağrılır' },
+  backToLatest: { en: 'Back to the latest session', tr: 'Son oturuma dön' },
+  showingPast: { en: 'Showing a session from', tr: 'Şu oturum gösteriliyor:' },
+  runCostNote: {
+    en: 'A session spends one request per seat per round, and the last round is only spent on the seats that held out. That is why the cost is a range and not a number.',
+    tr: 'Bir oturum her turda koltuk başına bir istek harcar, son tur yalnızca direnen koltuklara harcanır. Maliyet bu yüzden sayı değil, aralıktır.',
+  },
+
+  lastSession: { en: 'Last session', tr: 'Son oturum' },
+  openOutcome: { en: 'Read the outcome', tr: 'Sonucu oku' },
+  readTranscript: { en: 'Read the argument', tr: 'Tartışmayı oku' },
+  outcomeEyebrow: { en: 'What the panel decided', tr: 'Panel neye karar verdi' },
+  outcomeModels: { en: 'The models that sat on it', tr: 'Oturumda oturan modeller' },
+  summaryHeading: { en: 'The outcome, in one paragraph', tr: 'Sonuç, tek paragrafta' },
+  roundsNavLabel: { en: 'Rounds in this session', tr: 'Bu oturumdaki turlar' },
 
   agendaHeading: { en: 'The panel proposes', tr: 'Panel öneriyor' },
   agendaNote: {
