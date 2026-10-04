@@ -44,6 +44,7 @@ let contractPromise
 const contract = () => (contractPromise ??= import('../lib/archive-contract.mjs'))
 
 let containerPromise
+const configured = () => Boolean(process.env.AZURE_STORAGE_TARGET)
 const container = () => {
   const target = process.env.AZURE_STORAGE_TARGET
   if (!target) throw new Error('AZURE_STORAGE_TARGET is not set on this Static Web App')
@@ -63,6 +64,12 @@ const index = async () => {
 }
 
 const json = (status, body) => ({ status, jsonBody: body })
+
+/** The requested page size, from a query that may be absent, relative, or nonsense. */
+const limitOf = (request) => {
+  const asked = Number(new URL(request.url, 'https://archive.invalid').searchParams.get('limit') ?? MAX_ROWS)
+  return Number.isInteger(asked) && asked > 0 ? Math.min(asked, MAX_ROWS) : MAX_ROWS
+}
 
 /** Blob names carry the id, so a record can only be stored under a name that says which record it is. */
 const blobName = (id) => {
@@ -124,12 +131,13 @@ const file = async (request) => {
 
 const read = async (request) => {
   const { validateTimelineRecord } = await contract()
+  const limit = limitOf(request)
+  const readAt = new Date().toISOString()
 
-  const asked = Number(new URL(request.url).searchParams.get('limit') ?? MAX_ROWS)
-  const limit = Number.isInteger(asked) && asked > 0 ? Math.min(asked, MAX_ROWS) : MAX_ROWS
+  if (!configured()) return json(503, { readAt, errors: ['the archive has no storage credential on this Static Web App'] })
 
   const blob = (await container()).getAppendBlobClient(INDEX_BLOB)
-  if (!(await blob.exists())) return json(200, { schemaVersion: '0.1', readAt: new Date().toISOString(), count: 0, refused: 0, records: [] })
+  if (!(await blob.exists())) return json(200, { schemaVersion: '0.1', readAt, count: 0, refused: 0, unreadable: 0, records: [] })
 
   const text = (await blob.downloadToBuffer()).toString('utf8')
 
@@ -155,16 +163,29 @@ const read = async (request) => {
   }
 
   const records = [...kept.values()].sort((a, b) => String(b.finishedAt).localeCompare(String(a.finishedAt))).slice(0, limit)
-  return json(200, { schemaVersion: '0.1', readAt: new Date().toISOString(), count: records.length, refused, unreadable, records })
+  return json(200, { schemaVersion: '0.1', readAt, count: records.length, refused, unreadable, records })
 }
 
 app.http('archive', {
   methods: ['GET', 'POST'],
   authLevel: 'anonymous',
   route: 'archive',
-  handler: async (request) => {
-    if (request.method === 'POST') return file(request)
-    if (request.method === 'GET') return read(request)
-    return json(405, { errors: ['method: only GET and POST are served here'] })
+  handler: async (request, context) => {
+    try {
+      if (request.method === 'POST') return await file(request)
+      if (request.method === 'GET') return await read(request)
+      return json(405, { errors: ['method: only GET and POST are served here'] })
+    } catch (error) {
+      // The reason is logged where an operator will see it and the client is told what
+      // kind of failure it was. A bare 500 with no body is a failure nobody can act on.
+      context.error(`archive ${request.method}: ${error?.message ?? error}`)
+      context.log(`archive ${request.method} failed`, error)
+      const unconfigured = !configured()
+      return json(unconfigured ? 503 : 502, {
+        errors: unconfigured
+          ? ['the archive has no storage credential on this Static Web App']
+          : ['the archive could not reach its storage'],
+      })
+    }
   },
 })
