@@ -1,4 +1,6 @@
 import { expect, test } from '@playwright/test'
+import { curateRoster, selectPanelMembers } from '../../src/core/roster'
+import { SEAT_LABELS } from '../../src/core/types'
 
 /**
  * The OpenRouter endpoints are stubbed so acceptance never spends real quota and never
@@ -60,8 +62,26 @@ const roundOf = (system: string): 'agenda' | 'blind' | 'floor' | 'convergence' =
   return 'blind'
 }
 
-const seatOf = (model: string): string =>
-  model.startsWith('nvidia/nemotron-3-super') ? 'A' : model.startsWith('liquid') ? 'B' : 'C'
+/** Acceptance convenes three seats, so the panel is the first three seated members. */
+const SEAT_COUNT = 3
+
+/**
+ * Seat letters belong to the app, not to this suite.
+ *
+ * The stub is handed a model id and has to know which seat asked for that answer, so it
+ * needs the panel the app actually seated. Deriving the mapping from `curateRoster` and
+ * `selectPanelMembers` instead of repeating the order here is what stops the two drifting
+ * apart: this mapping already went stale once, when seating stopped following catalogue
+ * order and the suite went on assuming it did — the failure looked like a product bug.
+ */
+const SEATS = new Map(
+  selectPanelMembers(curateRoster(catalogue, '2026-01-01').members, SEAT_COUNT).map((member, index) => [
+    member.id,
+    SEAT_LABELS[index] ?? `S${index + 1}`,
+  ]),
+)
+
+const seatOf = (model: string): string => SEATS.get(model) ?? 'S?'
 
 type Script = Partial<Record<'agenda' | 'blind' | 'floor' | 'convergence', (seat: string) => string>>
 
