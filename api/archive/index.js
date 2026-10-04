@@ -28,7 +28,7 @@
  * checks anyway: a row that does not add up is refused on the way out.
  */
 const { app } = require('@azure/functions')
-const { BlobServiceClient } = require('@azure/storage-blob')
+const { AnonymousCredential, BlobServiceClient, ContainerClient } = require('@azure/storage-blob')
 
 const CONTAINER = 'sessions'
 const RECORD_PREFIX = 'records/'
@@ -45,13 +45,21 @@ const contract = () => (contractPromise ??= import('../lib/archive-contract.mjs'
 
 let containerPromise
 const configured = () => Boolean(process.env.AZURE_STORAGE_TARGET)
+
+/**
+ * The container client, built from the token's own URL.
+ *
+ * A service SAS is signed for one container and names it, so the URL already says which
+ * container it is. Building an account client from that URL and then asking it for a
+ * container appends the name a second time and every request comes back 400 — which is
+ * why the SAS is used as-is with an anonymous credential, as the SDK documents.
+ */
 const container = () => {
   const target = process.env.AZURE_STORAGE_TARGET
   if (!target) throw new Error('AZURE_STORAGE_TARGET is not set on this Static Web App')
-  containerPromise ??= (target.startsWith('https')
-    ? BlobServiceClient.fromSasUri(target)
-    : BlobServiceClient.fromConnectionString(target)
-  ).getContainerClient(CONTAINER)
+  containerPromise ??= target.startsWith('https')
+    ? new ContainerClient(target, new AnonymousCredential())
+    : BlobServiceClient.fromConnectionString(target).getContainerClient(CONTAINER)
   return containerPromise
 }
 
