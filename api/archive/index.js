@@ -122,16 +122,22 @@ const file = async (request) => {
 
   const blobs = await container()
   const storedAt = new Date().toISOString()
+  const target_ = blobs.getBlockBlobClient(`${RECORD_PREFIX}${name}.json`)
   try {
     // `ifNoneMatch: '*'` makes a repeated id an answer rather than an overwrite, which is
-    // the same append-only promise the credential itself makes.
-    // The byte length is passed explicitly: the SDK reads a second argument as the content
-    // length, and getting that wrong fails the request rather than the argument.
-    await blobs
-      .getBlockBlobClient(`${RECORD_PREFIX}${name}.json`)
-      .upload(body, body.byteLength, { blobHTTPHeaders: { blobContentType: 'application/json' }, conditions: { ifNoneMatch: '*' } })
+    // the same append-only promise the credential itself makes. The byte length is passed
+    // explicitly: the SDK reads a second argument as the content length, and getting that
+    // wrong fails the request rather than the argument.
+    await target_.upload(body, body.byteLength, { blobHTTPHeaders: { blobContentType: 'application/json' }, conditions: { ifNoneMatch: '*' } })
   } catch (error) {
-    if (error?.statusCode !== 409) throw error
+    // A token that may create but never overwrite is refused with 403 on a blob that is
+    // already there, and 409 only when the condition itself said no. Neither is a failure
+    // on its own, so the blob is asked which of the two it was: a 403 for a blob that is
+    // not there is a credential problem, and it is reported as one.
+    const conflict = error?.statusCode === 409
+    const refusedWrite = error?.statusCode === 403
+    if (!conflict && !refusedWrite) throw error
+    if (refusedWrite && !(await target_.exists())) throw error
     return json(200, { id: record.id, storedAt, alreadyStored: true })
   }
   const line = Buffer.from(`${JSON.stringify(row)}\n`, 'utf8')
