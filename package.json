@@ -1,0 +1,38 @@
+{
+  "name": "agr-agora",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 4189 --strictPort",
+    "build": "npm run lint && tsc --noEmit && vite build && node scripts/release.mjs write",
+    "lint": "oxlint --type-aware --deny-warnings .",
+    "preview": "vite preview --host 127.0.0.1 --port 4189 --strictPort",
+    "preview:release": "node scripts/serve-release.mjs",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:production": "AGR_E2E_PRODUCTION=1 playwright test",
+    "verify:artifact": "node scripts/release.mjs verify"
+  },
+  "dependencies": {
+    "@aserdargun/lab-core": "file:vendor/aserdargun-lab-core-0.2.0-fb38c750c230ff3d.tgz",
+    "@aserdargun/lab-ui": "file:vendor/aserdargun-lab-ui-0.2.0-5a573640012a6472.tgz",
+    "@fontsource-variable/inter": "5.3.0",
+    "@fontsource/ibm-plex-mono": "5.3.0",
+    "lucide-react": "1.39.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1",
+    "@types/node": "26.4.0",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.5",
+    "@vitejs/plugin-react": "6.1.1",
+    "oxlint": "^1.86.0",
+    "oxlint-tsgolint": "^7.0.2003",
+    "typescript": "7.0.2",
+    "vite": "8.2.2",
+    "vitest": "4.1.11"
+  }
+}

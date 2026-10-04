@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "0.1",
+  "sourceHash": "4777eb528a5ac7926713a94262642a702b9d410a1c3c947b55073c30e629f0ab",
+  "sourceHashAlgorithm": "sha256 of sorted path + NUL + bytes; schemas, package sources, package manifests, root lockfile and generator",
+  "archives": [
+    {
+      "package": "@aserdargun/lab-core",
+      "version": "0.2.0",
+      "file": "aserdargun-lab-core-0.2.0-fb38c750c230ff3d.tgz",
+      "sha256": "fb38c750c230ff3d96b4f78276e5160f8999540f11f1712f30bc710684e8fc90",
+      "integrity": "sha512-03LI2zHI+HSMwGCglJDQIzNpcpIwNP7Ro0+Jho5iDAJGyqmuJZsrAIYebsbJ7jLQG8SaOKwICnG24/rnMElfIg=="
+    },
+    {
+      "package": "@aserdargun/lab-ui",
+      "version": "0.2.0",
+      "file": "aserdargun-lab-ui-0.2.0-5a573640012a6472.tgz",
+      "sha256": "5a573640012a64728c88c7fc1e4e552dbc722ed2706adf9c8537037defe4eff0",
+      "integrity": "sha512-On1ROnQqHSYf+J5OiGQaQbW8AhXMQpAougmRBcjWbBwjMFuvD1WKLFDmcATFJl0zcd9DzcD+q6QC6pYDZBugRg=="
+    }
+  ]
+}

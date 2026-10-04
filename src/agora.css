@@ -1,0 +1,396 @@
+/* Agora sits in the aserdargun lab family: the shared lab-ui sheet supplies the
+   typography and controls, and this file only adds what is specific to a panel
+   transcript — seats, positions, and the tally bars. */
+
+.ag {
+  max-width: 62rem;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.ag-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.ag-head h1 {
+  margin: 0 0 0.25rem;
+}
+
+.ag-muted {
+  color: #5c5f57;
+  font-size: 0.925rem;
+  line-height: 1.5;
+}
+
+.ag-card {
+  border: 1px solid #dcdcd2;
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  background: #fff;
+}
+
+.ag-card h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.1rem;
+}
+
+.ag-card h3 {
+  margin: 1.25rem 0 0.5rem;
+  font-size: 0.95rem;
+}
+
+.ag-count {
+  font-variant-numeric: tabular-nums;
+  background: #f1f1ea;
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+.ag-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.ag-row input,
+.ag-card textarea,
+.ag-card label input {
+  flex: 1 1 14rem;
+  min-width: 0;
+  font: inherit;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid #cfcfc4;
+  border-radius: 0.4rem;
+}
+
+.ag-card label {
+  display: block;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.ag-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+}
+
+.ag-inline input {
+  width: 4.5rem;
+  flex: 0 0 auto;
+}
+
+button {
+  font: inherit;
+  padding: 0.5rem 0.9rem;
+  border-radius: 0.4rem;
+  border: 1px solid #2c2f28;
+  background: #2c2f28;
+  color: #fff;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ag-ghost {
+  background: transparent;
+  color: inherit;
+  border-color: #cfcfc4;
+}
+
+.ag-locale {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.ag-locale button {
+  background: transparent;
+  color: inherit;
+  border-color: #cfcfc4;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+.ag-locale button[aria-pressed='true'] {
+  background: #2c2f28;
+  color: #fff;
+  border-color: #2c2f28;
+}
+
+.ag-error {
+  color: #a32020;
+  margin: 0.5rem 0 0;
+}
+
+.ag-quota {
+  margin: 0 0 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ag-meter {
+  height: 0.4rem;
+  background: #f1f1ea;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.ag-meter span {
+  display: block;
+  height: 100%;
+  background: #6b7a3a;
+}
+
+.ag-roster,
+.ag-excluded,
+.ag-archive,
+.ag-dissent {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ag-roster li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid #f1f1ea;
+  font-size: 0.875rem;
+}
+
+.ag-slug {
+  font-family: var(--ag-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.ag-tags {
+  display: flex;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.ag-tag {
+  font-style: normal;
+  font-size: 0.7rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: #eef2e2;
+  color: #46521f;
+}
+
+.ag-tag-json {
+  background: #e6ecf5;
+  color: #26456e;
+}
+
+.ag-tag-dim {
+  background: #f1f1ea;
+  color: #5c5f57;
+}
+
+.ag-excluded li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f1f1ea;
+  font-size: 0.8rem;
+}
+
+.ag-seats {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+}
+
+.ag-seat {
+  border: 1px solid #e2e2d8;
+  border-radius: 0.6rem;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.ag-seat header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ag-seat p {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.ag-seat footer {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  font-size: 0.75rem;
+  color: #5c5f57;
+}
+
+.ag-seat-label {
+  font-weight: 600;
+}
+
+.ag-pos {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.ag-pos-support {
+  background: #e7f0e2;
+  color: #2f5a24;
+}
+
+.ag-pos-oppose {
+  background: #f7e4e2;
+  color: #8a2a22;
+}
+
+.ag-pos-abstain {
+  background: #eeece2;
+  color: #5c5744;
+}
+
+.ag-pos-unclear {
+  background: #e4e4e4;
+  color: #55575a;
+}
+
+.ag-confidence em {
+  font-style: normal;
+  color: #85887f;
+}
+
+.ag-warn,
+.ag-error-inline {
+  color: #a32020;
+}
+
+.ag-moved {
+  color: #2f5a24;
+}
+
+.ag-held {
+  color: #85887f;
+}
+
+.ag-tally {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.ag-tally li {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr 1.5rem;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.ag-bar {
+  height: 0.5rem;
+  background: #f1f1ea;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.ag-bar span {
+  display: block;
+  height: 100%;
+  background: #6b7a3a;
+}
+
+.ag-dissent li {
+  padding: 0.35rem 0;
+  border-bottom: 1px solid #f1f1ea;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.ag-archive li {
+  border-bottom: 1px solid #f1f1ea;
+  padding: 0.35rem 0;
+}
+
+.ag-archive button {
+  width: 100%;
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.ag-when {
+  font-variant-numeric: tabular-nums;
+  color: #85887f;
+  flex-shrink: 0;
+}
+
+.ag-what {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ag-archive-body {
+  padding: 0.5rem 0 0.75rem;
+  font-size: 0.85rem;
+}
+
+.ag-archive-body ul {
+  margin: 0.4rem 0;
+  padding-left: 1rem;
+  line-height: 1.5;
+}
+
+.ag-summary {
+  border-left: 3px solid #6b7a3a;
+  padding-left: 0.9rem;
+  line-height: 1.6;
+}
+
+.ag-foot {
+  color: #5c5f57;
+  font-size: 0.875rem;
+  border-top: 1px solid #dcdcd2;
+  padding-top: 1rem;
+}
+
+@media (max-width: 30rem) {
+  .ag {
+    padding: 1.25rem 0.9rem 3rem;
+  }
+
+  .ag-tally li {
+    grid-template-columns: 5.5rem 1fr 1.5rem;
+  }
+}

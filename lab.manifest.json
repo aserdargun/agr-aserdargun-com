@@ -1,0 +1,251 @@
+{
+  "schemaVersion": "0.1",
+  "id": "agr",
+  "code": "agr",
+  "name": "Agora",
+  "canonicalUrl": "https://agr.aserdargun.com/",
+  "type": "interactive-lab",
+  "parentApp": "hns",
+  "status": "preview",
+  "tagline": {
+    "en": "The free models answer alone, then answer each other.",
+    "tr": "Ücretsiz modeller önce tek başına, sonra birbirlerine cevap verir."
+  },
+  "guidingQuestion": {
+    "en": "What does a panel of free models actually agree on — and who dissents?",
+    "tr": "Ücretsiz model paneli gerçekte neye katılıyor, kim karşı çıkıyor?"
+  },
+  "concepts": [
+    "concept:free-model-panel",
+    "concept:blind-first-round",
+    "concept:floor-round",
+    "concept:quota-rationing",
+    "concept:agreement-is-not-correctness"
+  ],
+  "capabilities": {
+    "experiments": true,
+    "assumptions": true,
+    "evidence": true
+  },
+  "experiments": [
+    {
+      "id": "panel-3",
+      "title": {
+        "en": "Three seats · 6 requests",
+        "tr": "Üç koltuk · 6 istek"
+      },
+      "route": "/?seats=3"
+    },
+    {
+      "id": "panel-5",
+      "title": {
+        "en": "Five seats · 10 requests",
+        "tr": "Beş koltuk · 10 istek"
+      },
+      "route": "/?seats=5"
+    },
+    {
+      "id": "panel-7",
+      "title": {
+        "en": "Seven seats · 14 requests",
+        "tr": "Yedi koltuk · 14 istek"
+      },
+      "route": "/?seats=7"
+    }
+  ],
+  "evidencePolicy": {
+    "summary": {
+      "en": "A model’s stated position is a claim inside a transcript, not evidence. This ledger covers only what Agora can stand behind: the free catalogue it read, the visitor’s own quota, and arithmetic derived from panel statements. Agreement is reported as agreement and never as correctness, and no verdict is described as the right answer.",
+      "tr": "Bir modelin konumu görüşme içinde bir iddiadır, kanıt değildir. Bu defter yalnızca Agora’nın destekleyebildiği şeyleri kapsar: okuduğu ücretsiz katalog, ziyaretçinin kendi kotası ve panel ifadelerinden türetilen aritmetik. Uzlaşı uzlaşı olarak raporlanır, asla doğruluk olarak değil; hiçbir karar doğru cevap diye sunulmaz."
+    },
+    "allowedKinds": ["sourced", "user-input", "calculated", "measured", "estimated"]
+  },
+  "assumptions": [
+    {
+      "id": "rotating-roster",
+      "title": {
+        "en": "The free roster rotates without notice",
+        "tr": "Ücretsiz kadro haber verilmeden değişir"
+      },
+      "description": {
+        "en": "The panel is a snapshot of whatever was labelled `:free` when Agora read the public catalogue. A verdict therefore belongs to one dated roster; a later run may seat different models and reach a different count.",
+        "tr": "Panel, Agora herkese açık katalogdan okurken `:free` etiketi taşıyanların anlık görüntüsüdür. Bu yüzden bir karar tarihli bir kadroya aittir; sonraki koşuda başka modeller oturup başka bir sayıma varabilir."
+      }
+    },
+    {
+      "id": "small-free-models",
+      "title": {
+        "en": "Free models are small and frequently wrong",
+        "tr": "Ücretsiz modeller küçüktür ve sık yanılır"
+      },
+      "description": {
+        "en": "Nothing here asserts that the panel is right. The product value is a legible argument and an auditable count, not a correct answer.",
+        "tr": "Burada panelin doğru olduğu iddia edilmez. Ürünün değeri okunabilir bir görüşme ve denetlenebilir bir sayımdır, doğru bir cevap değil."
+      }
+    },
+    {
+      "id": "tolerant-parsing",
+      "title": {
+        "en": "Positions are read from free-form output",
+        "tr": "Konumlar serbest biçimli çıktıdan okunur"
+      },
+      "description": {
+        "en": "Only a minority of the free roster advertises structured output support, so a reader extracts a JSON object when present and otherwise recovers a stance from prose. A recovered stance is marked non-compliant in the interface rather than counted as clean.",
+        "tr": "Ücretsiz kadronun küçük bir bölümü yapılandırılmış çıktı desteklediği için okuyucu varsa bir JSON nesnesi çeker, yoksa duruşu düz metinden kurtarır. Kurtarılan duruş, arayüzde temiz sayılmak yerine biçime uymadı diye işaretlenir."
+      }
+    },
+    {
+      "id": "quota-rationing",
+      "title": {
+        "en": "Scarcity is deliberate, not a defect",
+        "tr": "Kıtlık bilinçlidir, bir arıza değil"
+      },
+      "description": {
+        "en": "The free tier allows 20 requests per minute and 50 per UTC day. Agora stays inside that ceiling instead of buying a higher tier, so a session is a costed decision rather than an unlimited conversation.",
+        "tr": "Ücretsiz katman dakikada 20, UTC gününde 50 isteğe izin verir. Agora daha yüksek bir eşik satın almak yerine bu tavanın içinde kalır; bu yüzden bir oturum sınırsız bir sohbet değil, maliyeti hesaplanmış bir karardır."
+      }
+    },
+    {
+      "id": "no-synthesis-call",
+      "title": {
+        "en": "No panelist writes the verdict",
+        "tr": "Kararı hiçbir panel üyesi yazmaz"
+      },
+      "description": {
+        "en": "Agora counts the floor round itself instead of asking a model to summarise it, so no seat can author the count that judges it. This also removes one request per session.",
+        "tr": "Agora, bir modelden özetlemesini istemek yerine meydan turunu kendisi sayar; böylece hiçbir koltuk kendisini yargılayan sayımı yazamaz. Bu ayrıca oturum başına bir isteği kaldırır."
+      }
+    }
+  ],
+  "evidence": [
+    {
+      "schemaVersion": "0.1",
+      "id": "roster",
+      "kind": "sourced",
+      "verificationStatus": "not-applicable",
+      "label": {
+        "en": "Free model roster",
+        "tr": "Ücretsiz model kadrosu"
+      },
+      "source": {
+        "title": "OpenRouter · GET /api/v1/models",
+        "url": "https://openrouter.ai/api/v1/models"
+      },
+      "notes": {
+        "en": "Read live from the public catalogue; no key and no quota required. Capabilities come from each entry’s `supported_parameters`. This is a runtime observation rather than a build-time claim, so no verification timestamp is asserted here: each session records the date its own snapshot was taken.",
+        "tr": "Herkese açık katalogdan canlı okundu; anahtar veya kota gerekmez. Yetenekler her kaydın `supported_parameters` alanından gelir. Bu bir derleme zamanı iddiası değil, çalışma zamanı gözlemidir; bu yüzden burada doğrulama zaman damgası ileri sürülmez. Her oturum kendi görüntüsünün alındığı tarihi kendisi kaydeder."
+      }
+    },
+    {
+      "schemaVersion": "0.1",
+      "id": "quota",
+      "kind": "user-input",
+      "verificationStatus": "unverified",
+      "label": {
+        "en": "Visitor’s own daily free quota",
+        "tr": "Ziyaretçinin kendi günlük ücretsiz kotası"
+      },
+      "notes": {
+        "en": "Reported by GET /api/v1/key against the key the visitor entered. It describes that key, and Agora cannot verify who holds it.",
+        "tr": "Ziyaretçinin girdiği anahtarla GET /api/v1/key uç noktası bildirir. O anahtarı tanımlar; Agora anahtarı kimin elinde tuttuğunu doğrulayamaz."
+      }
+    },
+    {
+      "schemaVersion": "0.1",
+      "id": "consensus",
+      "kind": "calculated",
+      "verificationStatus": "not-applicable",
+      "label": {
+        "en": "Agreement and dissenting share",
+        "tr": "Uzlaşı ve karşı görüş payı"
+      },
+      "calculatedFrom": ["roster"],
+      "notes": {
+        "en": "Counted by Agora over the floor round, with abstentions and unreadable seats removed from the decision. It measures agreement inside one dated panel, not the truth of the proposition.",
+        "tr": "Agora tarafından meydan turu üzerinden hesaplanır; çekimserler ve okunamayan koltuklar karardan çıkarılır. Tarihli bir panel içindeki uzlaşıyı ölçer, önerinin doğruluğunu değil."
+      }
+    },
+    {
+      "schemaVersion": "0.1",
+      "id": "measured-confidence",
+      "kind": "measured",
+      "verificationStatus": "not-applicable",
+      "label": {
+        "en": "Mean token log-probability",
+        "tr": "Ortalama token log-olasılığı"
+      },
+      "notes": {
+        "en": "Available only for the few roster members that advertise logprobs. It is a fluency measure over the whole answer, not a calibrated confidence in the stated position, and is labelled as such.",
+        "tr": "Yalnızca logprobs bildiren birkaç kadro üyesi için elde edilir. Konumdaki kalibre edilmiş bir güven değil, tüm yanıt boyunca bir akıcılık ölçüsüdür ve öyle etiketlenir."
+      }
+    },
+    {
+      "schemaVersion": "0.1",
+      "id": "stated-confidence",
+      "kind": "estimated",
+      "verificationStatus": "unverified",
+      "label": {
+        "en": "Model’s own confidence number",
+        "tr": "Modelin kendi güven sayısı"
+      },
+      "notes": {
+        "en": "Self-reported by the model. It is never presented as a measurement and never feeds into the count, where every readable vote carries the same weight.",
+        "tr": "Modelin kendi beyanıdır. Hiçbir zaman ölçüm olarak sunulmaz ve sayıma girmez; sayımda her okunabilir oy aynı ağırlığı taşır."
+      }
+    }
+  ],
+  "related": {
+    "theory": [
+      {
+        "id": "hns",
+        "label": {
+          "en": "Agent harness layers · HNS",
+          "tr": "Ajan katmanları · HNS"
+        },
+        "url": "https://hns.aserdargun.com/",
+        "localizedUrls": {
+          "en": "https://hns.aserdargun.com/?lang=en",
+          "tr": "https://hns.aserdargun.com/?lang=tr"
+        }
+      },
+      {
+        "id": "aia",
+        "label": {
+          "en": "Model ecosystem · AIA",
+          "tr": "Model ekosistemi · AIA"
+        },
+        "url": "https://aia.aserdargun.com/",
+        "localizedUrls": {
+          "en": "https://aia.aserdargun.com/?lang=en",
+          "tr": "https://aia.aserdargun.com/?lang=tr"
+        }
+      }
+    ],
+    "labs": [
+      {
+        "id": "dpl",
+        "label": {
+          "en": "Decision plane · DPL",
+          "tr": "Karar düzlemi · DPL"
+        },
+        "url": "https://dpl.aserdargun.com/",
+        "localizedUrls": {
+          "en": "https://dpl.aserdargun.com/?lang=en",
+          "tr": "https://dpl.aserdargun.com/?lang=tr"
+        }
+      },
+      {
+        "id": "evl",
+        "label": {
+          "en": "Evaluation contracts · EVL",
+          "tr": "Değerlendirme sözleşmeleri · EVL"
+        },
+        "url": "https://evl.aserdargun.com/",
+        "localizedUrls": {
+          "en": "https://evl.aserdargun.com/?lang=en",
+          "tr": "https://evl.aserdargun.com/?lang=tr"
+        }
+      }
+    ]
+  }
+}
