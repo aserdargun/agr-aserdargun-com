@@ -131,6 +131,17 @@ const useTab = async (page: import('@playwright/test').Page, name: string) => {
 }
 
 /**
+ * Whether the suite is pointed at a deployed host rather than a local server.
+ *
+ * It is not a flag the tests invent: it is what `AGR_E2E_URL` in the config already means,
+ * and the two hosts differ in a way the suite must not paper over. A static preview has no
+ * `/api` route, so the archive cannot be reached and filing reports that; a deployed Static
+ * Web App has one, so the feed is read for real. `AGR_E2E_PRODUCTION` is deliberately not
+ * part of this: it serves the artifact from a local process, which has no `/api` either.
+ */
+const DEPLOYED = Boolean(process.env.AGR_E2E_URL)
+
+/**
  * Wait for the run to finish.
  *
  * A finished session opens on its own outcome, so a test that clicks a tab straight after
@@ -308,14 +319,25 @@ test('files a session that proved its cost, and keeps it on screen when the arch
   await expect(card.getByRole('button', { name: 'Download the record' })).toBeVisible({ timeout: 30000 })
   await expect(file).toBeVisible()
 
-  // The shared record is read from the archive rather than baked in, and a static preview
-  // has no /api route. That is stated instead of being shown as an empty history.
+  // The shared record is read from the archive rather than baked in. A static preview has
+  // no /api route and says so; a deployed host reads the feed and says that instead. Both
+  // are statements about the read, and neither is shown as an empty history.
   await useTab(page, 'Archive')
-  await expect(page.getByText('The shared archive could not be read')).toBeVisible()
+  if (DEPLOYED) {
+    await expect(page.getByText('Read from the archive just now')).toBeVisible()
+  } else {
+    await expect(page.getByText('The shared archive could not be read')).toBeVisible()
+  }
 
   // Filing goes through the site's own /api route, so on a static host it is unreachable.
   // The session is already saved and already on screen: the archive is an addition, never
   // a gate, and the failure is reported as a state rather than thrown.
+  //
+  // Against a deployed host this step is skipped rather than adapted. The route is real
+  // there, so clicking it would file a stubbed record in the shared archive that everyone
+  // else reads. The unreachable path is a property of the static host, and the deployed
+  // path is covered by the read above.
+  if (DEPLOYED) return
   await useTab(page, 'Outcome')
   await file.click()
   await expect(card.getByText('The archive could not be reached')).toBeVisible()
