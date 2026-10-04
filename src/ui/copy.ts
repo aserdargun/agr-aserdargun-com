@@ -4,6 +4,12 @@ type Text = { en: string; tr: string }
 
 export const copy = {
   title: { en: 'Agora', tr: 'Agora' },
+  familyMark: { en: 'aserdargun.com · Agora', tr: 'aserdargun.com · Agora' },
+  skipToPanel: { en: 'Skip to the panel', tr: 'Panele geç' },
+  themeLight: { en: 'Light', tr: 'Açık' },
+  themeDark: { en: 'Dark', tr: 'Koyu' },
+  themeToLight: { en: 'Use the light theme', tr: 'Açık temayı kullan' },
+  themeToDark: { en: 'Use the dark theme', tr: 'Koyu temayı kullan' },
   tagline: {
     en: 'OpenRouter’s free models argue with each other until they agree, hold, or run out of room. You can read the whole argument.',
     tr: 'OpenRouter’ın ücretsiz modelleri birbirleriyle tartışır; uzlaşırlar, direnirler ya da yere bağlanırlar. Tüm tartışmayı okuyabilirsin.',
@@ -144,6 +150,18 @@ export const copy = {
   footer: {
     en: 'Agreement is not correctness. These are small free models, and their roster changes every week.',
     tr: 'Uzlaşı doğruluk değildir. Bunlar küçük ücretsiz modellerdir ve kadrosu her hafta değişir.',
+  },
+  backToPortfolio: {
+    en: 'aserdargun.com · Learning system',
+    tr: 'aserdargun.com · Öğrenme sistemi',
+  },
+  backToApplications: {
+    en: 'Applications',
+    tr: 'Uygulamalar',
+  },
+  portfolioNav: {
+    en: 'Part of the aserdargun.com portfolio',
+    tr: 'aserdargun.com portföyünün parçası',
   },
 } as const
 

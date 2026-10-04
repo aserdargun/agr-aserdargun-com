@@ -10,11 +10,13 @@ import {
   QuotaMeter,
   RosterPanel,
   SessionList,
+  ThemeToggle,
   TopicPicker,
   VerdictCard,
 } from './Panels'
 import { Timeline } from './Timeline'
 import { copy, text } from './copy'
+import { applyTheme, loadTheme, resolveTheme, storeTheme, type Theme } from './theme'
 import {
   buildPanel,
   clusterProposals,
@@ -58,6 +60,8 @@ export default function App() {
   const [checking, setChecking] = useState(false)
   const [keyError, setKeyError] = useState<string | null>(null)
   const [roster, setRoster] = useState<Roster | null>(null)
+  const [themeChoice, setThemeChoice] = useState<Theme | null>(() => loadTheme())
+  const theme = resolveTheme(themeChoice)
 
   const [mode, setMode] = useState<'given' | 'panel'>('given')
   const [proposition, setProposition] = useState('')
@@ -79,6 +83,10 @@ export default function App() {
   useEffect(() => {
     document.documentElement.lang = locale
   }, [locale])
+
+  useEffect(() => {
+    applyTheme(themeChoice)
+  }, [themeChoice])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -240,14 +248,30 @@ export default function App() {
     return [...base, ...localTimeline.filter((entry) => !ids.has(entry.id))]
   }, [localTimeline])
 
+  const home = `https://aserdargun.com/${locale === 'tr' ? 'tr/' : ''}`
+
   return (
     <main className="ag">
+      <a className="ag-skip" href="#panel">
+        {text(copy.skipToPanel, locale)}
+      </a>
       <header className="ag-head">
         <div>
+          <span className="ag-eyebrow">{text(copy.familyMark, locale)}</span>
           <h1>{text(copy.title, locale)}</h1>
           <p className="ag-muted">{text(copy.tagline, locale)}</p>
         </div>
-        <LocaleToggle locale={locale} onChange={setLocale} />
+        <div className="ag-head-tools">
+          <LocaleToggle locale={locale} onChange={setLocale} />
+          <ThemeToggle
+            theme={theme}
+            locale={locale}
+            onChange={(next) => {
+              storeTheme(next)
+              setThemeChoice(next)
+            }}
+          />
+        </div>
       </header>
 
       <KeyGate
@@ -332,7 +356,17 @@ export default function App() {
       <RosterPanel locale={locale} roster={roster} />
       <Evidence locale={locale} />
 
-      <footer className="ag-foot">{text(copy.footer, locale)}</footer>
+      <footer className="ag-foot">
+        <p>{text(copy.footer, locale)}</p>
+        <nav className="ag-foot-links" aria-label={text(copy.portfolioNav, locale)}>
+          <a href={home} target="_blank" rel="noreferrer">
+            {text(copy.backToPortfolio, locale)}
+          </a>
+          <a href={`${home}applications/`} target="_blank" rel="noreferrer">
+            {text(copy.backToApplications, locale)}
+          </a>
+        </nav>
+      </footer>
     </main>
   )
 }

@@ -17,6 +17,7 @@ import {
 } from '../core/types'
 import type { Cluster } from '../core/engine'
 import { copy, text } from './copy'
+import type { Theme } from './theme'
 import { selectionRule } from '../core/roster'
 
 const percent = (value: number): string => `${Math.round(value * 100)}%`
@@ -31,6 +32,28 @@ export function LocaleToggle({ locale, onChange }: { locale: Locale; onChange: (
         </button>
       ))}
     </div>
+  )
+}
+
+export function ThemeToggle({
+  theme,
+  locale,
+  onChange,
+}: {
+  theme: Theme
+  locale: Locale
+  onChange: (next: Theme) => void
+}) {
+  const toDark = theme !== 'dark'
+  return (
+    <button
+      type="button"
+      className="ag-theme"
+      onClick={() => onChange(toDark ? 'dark' : 'light')}
+      aria-label={text(toDark ? copy.themeToDark : copy.themeToLight, locale)}
+    >
+      {text(toDark ? copy.themeDark : copy.themeLight, locale)}
+    </button>
   )
 }
 
@@ -52,7 +75,7 @@ export function KeyGate({
   error: string | null
 }) {
   return (
-    <section className="ag-card">
+    <section className="ag-card" id="panel">
       <h2>{text(copy.keyHeading, locale)}</h2>
       <p className="ag-muted">{text(copy.keyWhy, locale)}</p>
       <div className="ag-row">
