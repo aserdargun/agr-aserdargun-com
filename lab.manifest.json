@@ -8,49 +8,53 @@
   "parentApp": "hns",
   "status": "preview",
   "tagline": {
-    "en": "The free models answer alone, then answer each other.",
-    "tr": "Ücretsiz modeller önce tek başına, sonra birbirlerine cevap verir."
+    "en": "The free models argue with each other, and you can read the whole argument.",
+    "tr": "Ücretsiz modeller birbirleriyle tartışır; tüm tartışmayı okuyabilirsin."
   },
   "guidingQuestion": {
-    "en": "What does a panel of free models actually agree on — and who dissents?",
-    "tr": "Ücretsiz model paneli gerçekte neye katılıyor, kim karşı çıkıyor?"
+    "en": "Do free models converge on anything, or only agree when they were never tested against each other?",
+    "tr": "Ücretsiz modeller bir şey üzerinde uzlaşıyor mu, yoksa birbirleriyle sınanmadıkları için mi katılıyorlar?"
   },
   "concepts": [
     "concept:free-model-panel",
+    "concept:panel-chosen-agenda",
     "concept:blind-first-round",
     "concept:floor-round",
+    "concept:convergence-round",
+    "concept:agreement-threshold",
     "concept:quota-rationing",
     "concept:agreement-is-not-correctness"
   ],
   "capabilities": {
     "experiments": true,
+    "compare": true,
     "assumptions": true,
     "evidence": true
   },
   "experiments": [
     {
-      "id": "panel-3",
+      "id": "given-topic",
       "title": {
-        "en": "Three seats · 6 requests",
-        "tr": "Üç koltuk · 6 istek"
-      },
-      "route": "/?seats=3"
-    },
-    {
-      "id": "panel-5",
-      "title": {
-        "en": "Five seats · 10 requests",
-        "tr": "Beş koltuk · 10 istek"
+        "en": "Five seats, a topic you give · 10–15 requests",
+        "tr": "Beş koltuk, sizin verdiğiniz konu · 10-15 istek"
       },
       "route": "/?seats=5"
     },
     {
-      "id": "panel-7",
+      "id": "panel-topic",
       "title": {
-        "en": "Seven seats · 14 requests",
-        "tr": "Yedi koltuk · 14 istek"
+        "en": "The panel sets its own agenda · 15–20 requests",
+        "tr": "Panel kendi gündemini kurar · 15-20 istek"
       },
-      "route": "/?seats=7"
+      "route": "/?seats=5&topic=panel"
+    },
+    {
+      "id": "small-panel",
+      "title": {
+        "en": "Three seats, cheapest session · 6–9 requests",
+        "tr": "Üç koltuk, en ucuz oturum · 6-9 istek"
+      },
+      "route": "/?seats=3"
     }
   ],
   "evidencePolicy": {
@@ -58,7 +62,13 @@
       "en": "A model’s stated position is a claim inside a transcript, not evidence. This ledger covers only what Agora can stand behind: the free catalogue it read, the visitor’s own quota, and arithmetic derived from panel statements. Agreement is reported as agreement and never as correctness, and no verdict is described as the right answer.",
       "tr": "Bir modelin konumu görüşme içinde bir iddiadır, kanıt değildir. Bu defter yalnızca Agora’nın destekleyebildiği şeyleri kapsar: okuduğu ücretsiz katalog, ziyaretçinin kendi kotası ve panel ifadelerinden türetilen aritmetik. Uzlaşı uzlaşı olarak raporlanır, asla doğruluk olarak değil; hiçbir karar doğru cevap diye sunulmaz."
     },
-    "allowedKinds": ["sourced", "user-input", "calculated", "measured", "estimated"]
+    "allowedKinds": [
+      "sourced",
+      "user-input",
+      "calculated",
+      "measured",
+      "estimated"
+    ]
   },
   "assumptions": [
     {
@@ -68,8 +78,8 @@
         "tr": "Ücretsiz kadro haber verilmeden değişir"
       },
       "description": {
-        "en": "The panel is a snapshot of whatever was labelled `:free` when Agora read the public catalogue. A verdict therefore belongs to one dated roster; a later run may seat different models and reach a different count.",
-        "tr": "Panel, Agora herkese açık katalogdan okurken `:free` etiketi taşıyanların anlık görüntüsüdür. Bu yüzden bir karar tarihli bir kadroya aittir; sonraki koşuda başka modeller oturup başka bir sayıma varabilir."
+        "en": "The panel is a snapshot of whatever was labelled `:free` when Agora read the public catalogue. A verdict therefore belongs to one dated roster, and a later run may seat different models and reach a different count. The shared timeline exists to make that comparison possible.",
+        "tr": "Panel, Agora herkese açık katalogdan okurken `:free` etiketi taşıyanların anlık görüntüsüdür. Bu yüzden bir karar tarihli bir kadroya aittir; sonraki koşuda başka modeller oturup başka bir sayıma varabilir. Paylaşımlı zaman çizelgesi tam olarak bu karşılaştırmayı mümkün kılmak için vardır."
       }
     },
     {
@@ -84,6 +94,28 @@
       }
     },
     {
+      "id": "agreement-is-not-accuracy",
+      "title": {
+        "en": "Convergence measures agreement, not accuracy",
+        "tr": "Uzlaşma doğruluk değil, katılım ölçer"
+      },
+      "description": {
+        "en": "A panel can agree immediately without ever having been tested against each other, and a panel that argues can split further. Agora reports the agreement path across the rounds so the two cases stay distinguishable, and the threshold it applies is a declared constant rather than one chosen to suit a result.",
+        "tr": "Bir panel birbirleriyle hiç sınanmadan hemen katılabilir, tartışan bir panel daha da bölünebilir. Agora bunları ayırt edilebilir tutmak için turlar boyunca uzlaşı yolunu raporlar ve uyguladığı eşik, sonuca uydurmak için seçilmiş bir değer değil, ilan edilmiş bir sabittir."
+      }
+    },
+    {
+      "id": "no-model-writes-the-verdict",
+      "title": {
+        "en": "No panel member writes the verdict",
+        "tr": "Kararı hiçbir panel üyesi yazmaz"
+      },
+      "description": {
+        "en": "Agora counts the rounds itself instead of asking a model to summarise them, so no seat can author the count that judges it. The final round is also spent only on seats that dissented, which is both what a real deliberation would do and what keeps a session inside the daily ceiling.",
+        "tr": "Agora, bir modelden özetlemesini istemek yerine turları kendisi sayar; böylece hiçbir koltuk kendisini yargılayan sayımı yazamaz. Son tur yalnızca karşı çıkan koltuklara harcanır; bu hem gerçek bir müzakerede olacak olan şey, hem de oturumu günlük tavanın içinde tutan şeydir."
+      }
+    },
+    {
       "id": "tolerant-parsing",
       "title": {
         "en": "Positions are read from free-form output",
@@ -95,25 +127,36 @@
       }
     },
     {
+      "id": "addressing-is-not-guaranteed",
+      "title": {
+        "en": "Who answered whom is read, not assumed",
+        "tr": "Kimin kime cevap verdiği okunur, varsayılmaz"
+      },
+      "description": {
+        "en": "The floor and final rounds ask each seat to name the seat it is answering, and Agora reports the links it could read. A seat that names nobody is shown as having named nobody. An absent link is a gap in the record, not evidence that the seat was not listening.",
+        "tr": "Meydan ve son turlarda her üyeden cevap verdiği koltuğu adıyla belirtmesi istenir ve Agora okuyabildiği bağlantıları raporlar. Kimseye adı olmayan koltuk, kimseye adı olmayan olarak gösterilir. Eksik bir bağlantı, koltukun dinlemediği değil, kayıtta boşluk olduğu anlamına gelir."
+      }
+    },
+    {
+      "id": "lexical-clustering",
+      "title": {
+        "en": "Panel-chosen topics are grouped lexically",
+        "tr": "Panelin seçtiği konular sözcüksel olarak gruplanır"
+      },
+      "description": {
+        "en": "When the panel picks its own topic, Agora groups proposals by stemmed word overlap above a declared threshold and names the largest group. Grouping is a heuristic: two proposals on the same subject in different vocabulary can stay separate, and every group is shown with its size so a single proposer cannot pass as a shared agenda. The visitor chooses what is debated.",
+        "tr": "Panel kendi konusunu seçtiğinde Agora, önerileri ilan edilmiş bir eşiğin üzerindeki kök çıkarılmış sözcük örtüşmesine göre gruplar ve en büyük grubu adlandırır. Gruplama sezgiseldir: aynı konuyu farklı sözcüklerle söyleyen iki öneri ayrı kalabilir ve her grup boyutuyla gösterilir, böylece tek bir önerici ortak gündem gibi görünemez. Ne üzerinde tartışılacağına ziyaretçi karar verir."
+      }
+    },
+    {
       "id": "quota-rationing",
       "title": {
         "en": "Scarcity is deliberate, not a defect",
         "tr": "Kıtlık bilinçlidir, bir arıza değil"
       },
       "description": {
-        "en": "The free tier allows 20 requests per minute and 50 per UTC day. Agora stays inside that ceiling instead of buying a higher tier, so a session is a costed decision rather than an unlimited conversation.",
-        "tr": "Ücretsiz katman dakikada 20, UTC gününde 50 isteğe izin verir. Agora daha yüksek bir eşik satın almak yerine bu tavanın içinde kalır; bu yüzden bir oturum sınırsız bir sohbet değil, maliyeti hesaplanmış bir karardır."
-      }
-    },
-    {
-      "id": "no-synthesis-call",
-      "title": {
-        "en": "No panelist writes the verdict",
-        "tr": "Kararı hiçbir panel üyesi yazmaz"
-      },
-      "description": {
-        "en": "Agora counts the floor round itself instead of asking a model to summarise it, so no seat can author the count that judges it. This also removes one request per session.",
-        "tr": "Agora, bir modelden özetlemesini istemek yerine meydan turunu kendisi sayar; böylece hiçbir koltuk kendisini yargılayan sayımı yazamaz. Bu ayrıca oturum başına bir isteği kaldırır."
+        "en": "The free tier allows 20 requests per minute and 50 per UTC day. Agora stays inside that ceiling instead of buying a higher tier, quotes a cost range rather than a single number because the final round is conditional, and a verdict can only enter the shared timeline if the daily counter proves it cost what it claims.",
+        "tr": "Ücretsiz katman dakikada 20, UTC gününde 50 isteğe izin verir. Agora daha yüksek bir eşik satın almak yerine bu tavanın içinde kalır, son tur koşullu olduğu için tek sayı yerine bir maliyet aralığı gösterir ve bir karar paylaşımlı zaman çizelgesine yalnızca günlük sayaç iddia ettiği maliyeti kanıtlarsa girebilir."
       }
     }
   ],
@@ -159,7 +202,9 @@
         "en": "Agreement and dissenting share",
         "tr": "Uzlaşı ve karşı görüş payı"
       },
-      "calculatedFrom": ["roster"],
+      "calculatedFrom": [
+        "roster"
+      ],
       "notes": {
         "en": "Counted by Agora over the floor round, with abstentions and unreadable seats removed from the decision. It measures agreement inside one dated panel, not the truth of the proposition.",
         "tr": "Agora tarafından meydan turu üzerinden hesaplanır; çekimserler ve okunamayan koltuklar karardan çıkarılır. Tarihli bir panel içindeki uzlaşıyı ölçer, önerinin doğruluğunu değil."

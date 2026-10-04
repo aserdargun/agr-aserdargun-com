@@ -5,14 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 4189 --strictPort",
-    "build": "npm run lint && tsc --noEmit && vite build && node scripts/release.mjs write",
+    "build": "npm run lint && npm run test && node scripts/archive.mjs build && tsc --noEmit && vite build && node scripts/release.mjs write",
     "lint": "oxlint --type-aware --deny-warnings .",
     "preview": "vite preview --host 127.0.0.1 --port 4189 --strictPort",
     "preview:release": "node scripts/serve-release.mjs",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:e2e:production": "AGR_E2E_PRODUCTION=1 playwright test",
-    "verify:artifact": "node scripts/release.mjs verify"
+    "verify:artifact": "node scripts/release.mjs verify",
+    "archive:verify": "node scripts/archive.mjs verify",
+    "archive:build": "node scripts/archive.mjs build"
   },
   "dependencies": {
     "@aserdargun/lab-core": "file:vendor/aserdargun-lab-core-0.2.0-fb38c750c230ff3d.tgz",

@@ -61,6 +61,9 @@ export interface PanelSeat {
   member: RosterEntry
 }
 
+export type RoundKind = 'blind' | 'floor' | 'convergence'
+
+/** Seat labels this member addressed directly, read from the answer. */
 export interface Vote {
   seat: string
   memberId: string
@@ -68,6 +71,10 @@ export interface Vote {
   reason: string
   confidence: number | null
   confidenceBasis: ConfidenceBasis
+  /** Mean token log-probability, present whenever the member reported logprobs. */
+  meanLogprob: number | null
+  /** Seat labels named in the answer. Empty in the blind round by construction. */
+  addressed: string[]
   /** False when the model ignored the requested shape and was recovered from prose. */
   formatCompliant: boolean
   raw: string
@@ -110,15 +117,61 @@ export interface Verdict {
 
 export type SessionPhase = 'idle' | 'blind' | 'floor' | 'verdict' | 'done' | 'failed'
 
+/** One seat's suggestion for what the panel should argue about. */
+export interface Proposal {
+  seat: string
+  memberId: string
+  proposition: string
+  reason: string
+  formatCompliant: boolean
+  raw: string
+  error?: string
+}
+
+export interface Agenda {
+  mode: 'given' | 'panel'
+  proposals: Proposal[]
+  /** The proposition that was actually debated. */
+  chosen: string
+  chosenBy: 'given' | 'user' | 'cluster'
+  /** How many proposals agreed with the chosen one, in panel mode. Zero when given. */
+  clusterSize: number
+}
+
+/** Agreement measured at one point in the discussion. */
+export interface RoundSnapshot {
+  kind: RoundKind
+  positions: Record<Position, number>
+  leading: Position
+  /** Share of the deciding seats on the leading position, 0..1. */
+  agreement: number
+  seats: string[]
+}
+
+export interface Convergence {
+  snapshots: RoundSnapshot[]
+  /** Declared share of deciding seats that counts as agreement. */
+  threshold: number
+  reached: boolean
+  /** Seats the final round moved, and what they moved from. */
+  moved: { seat: string; from: Position; to: Position }[]
+  /** Seats invited back that refused to move. */
+  held: string[]
+  invited: string[]
+}
+
 export interface SessionRecord {
   id: string
   motion: string
   locale: Locale
   startedAt: string
   finishedAt: string
+  agenda: Agenda
   panel: PanelSeat[]
   blind: Vote[]
   floor: FloorTurn[]
+  convergence: FloorTurn[]
+  trajectory: Convergence
   verdict: Verdict
   quota: { before: Quota | null; after: Quota | null }
   requestsSpent: number
@@ -127,9 +180,16 @@ export interface SessionRecord {
 export const SEAT_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'] as const
 
 /**
- * Requests consumed by a session: one blind call and one floor call per seat.
+ * What a session costs, as a range.
  *
- * No synthesis call. The verdict is computed by Agora from the counted positions
- * instead of being written by a panelist, so no panelist also acts as its own judge.
+ * The range is honest because the final round is only spent on the seats that dissented,
+ * and nobody knows who those are until the floor round is counted. A panel that agrees
+ * immediately costs the minimum; a panel that splits costs the maximum.
  */
-export const estimateRequests = (seatCount: number): number => seatCount * 2
+export const estimateRequests = (seatCount: number, options: { agenda?: boolean } = {}): { min: number; max: number } => {
+  const agenda = options.agenda ? seatCount : 0
+  return { min: agenda + seatCount * 2, max: agenda + seatCount * 3 }
+}
+
+/** Share of the deciding seats on the leading position that counts as agreement. */
+export const AGREEMENT_THRESHOLD = 2 / 3

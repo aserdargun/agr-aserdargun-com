@@ -1,0 +1,3 @@
+# Generated at build time by `npm run archive:build`. Never committed: it may contain a
+# visitor's private session, and the shared timeline is rebuilt from archive/ on CI.
+timeline.generated.json

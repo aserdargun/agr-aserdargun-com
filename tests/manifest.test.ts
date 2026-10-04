@@ -27,7 +27,30 @@ describe('lab.manifest.json', () => {
   })
 
   it('records that no panelist authors the verdict', () => {
-    const assumption = manifest.assumptions.find((entry) => entry.id === 'no-synthesis-call')
+    const assumption = manifest.assumptions.find((entry) => entry.id === 'no-model-writes-the-verdict')
     expect(assumption?.description.en).toMatch(/instead of asking a model/i)
+  })
+
+  it('separates agreement from accuracy, and names the threshold as declared rather than chosen', () => {
+    const assumption = manifest.assumptions.find((entry) => entry.id === 'agreement-is-not-accuracy')
+    expect(assumption?.description.en).toMatch(/agreement path/i)
+    expect(assumption?.description.en).toMatch(/declared constant/i)
+  })
+
+  it('admits the agenda clustering is a heuristic and not a panel consensus', () => {
+    const assumption = manifest.assumptions.find((entry) => entry.id === 'lexical-clustering')
+    expect(assumption?.description.en).toMatch(/heuristic/i)
+    expect(assumption?.description.en).toMatch(/cannot pass as a shared agenda/i)
+  })
+
+  it('states that an unreadable address is a gap in the record, not evidence of indifference', () => {
+    const assumption = manifest.assumptions.find((entry) => entry.id === 'addressing-is-not-guaranteed')
+    expect(assumption?.description.en).toMatch(/gap in the record/i)
+  })
+
+  it('offers both ways of choosing a topic as experiments', () => {
+    const routes = manifest.experiments.map((entry) => entry.route)
+    expect(routes.some((route) => route.includes('topic=panel'))).toBe(true)
+    expect(routes.some((route) => route.includes('seats=3'))).toBe(true)
   })
 })

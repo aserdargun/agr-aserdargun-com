@@ -1,11 +1,75 @@
 import type { ConfidenceBasis, Position } from './types'
 
+export interface ParsedProposal {
+  proposition: string
+  reason: string
+  formatCompliant: boolean
+  raw: string
+}
+
 export interface ParsedVote {
   position: Position
   reason: string
   confidence: number | null
   confidenceBasis: ConfidenceBasis
+  addressed: string[]
   formatCompliant: boolean
+}
+
+/** Seat letters Agora addresses members by. A-J only, so a stray capital is not a seat. */
+const SEAT_LABELS = new Set(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'])
+
+/**
+ * Read which seats an answer names.
+ *
+ * This is what turns a row of parallel statements into a debate: without it there is no
+ * way to show that B answered C rather than everyone talking past each other. The JSON
+ * `addressed` field is preferred; otherwise the prose forms below are used, and an
+ * answer that names nobody is recorded as addressing nobody rather than being guessed at.
+ */
+export const readAddressed = (payload: Record<string, unknown> | null, raw: string): string[] => {
+  const found = new Set<string>()
+
+  if (payload && Array.isArray(payload.addressed)) {
+    for (const value of payload.addressed) {
+      if (typeof value === 'string' && SEAT_LABELS.has(value.trim().toUpperCase())) {
+        found.add(value.trim().toUpperCase())
+      }
+    }
+  }
+  if (found.size > 0) return [...found].sort()
+
+  const patterns = [
+    /\b(?:seat|member|üye|koltuk)\s+\(?([A-J])\)?/gi,
+    /^\s*[-–—]?\s*\(?([A-J])\)?\s*[:.、]/gm,
+    /\(([A-J])\)/g,
+    /\[([A-J])\]/g,
+  ]
+  for (const pattern of patterns) {
+    for (const match of raw.matchAll(pattern)) {
+      const label = match[1].toUpperCase()
+      if (SEAT_LABELS.has(label)) found.add(label)
+    }
+  }
+  return [...found].sort()
+}
+
+/** Read one agenda proposal, recovering a plain-text answer rather than discarding it. */
+export const readProposal = (raw: string): ParsedProposal => {
+  const payload = extractJson(raw)
+  if (payload) {
+    const proposition = typeof payload.proposition === 'string' ? payload.proposition.trim() : ''
+    const reason = typeof payload.reason === 'string' ? payload.reason.trim() : ''
+    if (proposition) return { proposition, reason: reason || raw.trim(), formatCompliant: true, raw }
+  }
+
+  const lines = stripFences(raw)
+    .split('\n')
+    .map((line) => line.replace(/^[-–—*\s]+/, '').trim())
+    .filter(Boolean)
+
+  if (lines.length === 0) return { proposition: '', reason: '', formatCompliant: false, raw }
+  return { proposition: lines[0], reason: lines.slice(1).join(' ').trim(), formatCompliant: false, raw }
 }
 
 const SUPPORT_WORDS = [
@@ -172,7 +236,11 @@ export const confidenceFromLogprobs = (meanLogprob: number | null): number | nul
  * confidence is the model's own claim and is labelled `self-reported` so the two are
  * never presented as the same kind of number.
  */
-export const readVote = (raw: string, options: { measuredLogprob?: number | null } = {}): ParsedVote => {
+export const readVote = (
+  raw: string,
+  options: { measuredLogprob?: number | null; ownSeat?: string } = {},
+): ParsedVote => {
+  const ownSeat = options.ownSeat
   const measured = confidenceFromLogprobs(options.measuredLogprob ?? null)
   const payload = extractJson(raw)
 
@@ -186,6 +254,7 @@ export const readVote = (raw: string, options: { measuredLogprob?: number | null
       reason: reason || raw.trim(),
       confidence: measured ?? stated,
       confidenceBasis: measured !== null ? 'measured' : stated !== null ? 'self-reported' : 'absent',
+      addressed: readAddressed(payload, raw).filter((label) => label !== ownSeat),
       formatCompliant: true,
     }
   }
@@ -195,6 +264,7 @@ export const readVote = (raw: string, options: { measuredLogprob?: number | null
     reason: raw.trim(),
     confidence: measured,
     confidenceBasis: measured !== null ? 'measured' : 'absent',
+    addressed: readAddressed(null, raw).filter((label) => label !== ownSeat),
     formatCompliant: false,
   }
 }
