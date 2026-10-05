@@ -378,10 +378,15 @@ export function RunProgress({
   locale,
   progress,
   panel,
+  written,
+  onRead,
 }: {
   locale: Locale
   progress: LiveProgress
   panel: PanelSeat[]
+  /** Rounds the engine has already counted, which the transcript tab is showing. */
+  written: number
+  onRead: () => void
 }) {
   if (!progress.stage) return null
   const stage = progress.stage
@@ -425,6 +430,13 @@ export function RunProgress({
           )
         })}
       </ul>
+      {written > 0 ? (
+        <div className="ag-row ag-readlink">
+          <button type="button" className="ag-ghost" onClick={onRead}>
+            {text(copy.readAsWritten, locale)}
+          </button>
+        </div>
+      ) : null}
     </section>
   )
 }

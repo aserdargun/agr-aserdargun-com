@@ -9,7 +9,7 @@ import {
   tally,
   verdictText,
 } from '../src/core/engine'
-import { AGREEMENT_THRESHOLD, estimateRequests, type FloorTurn, type Position, type Proposal, type RosterEntry, type Vote } from '../src/core/types'
+import { AGREEMENT_THRESHOLD, estimateRequests, type FloorTurn, type Position, type Proposal, type RoundKind, type RosterEntry, type Vote } from '../src/core/types'
 
 const member = (slug: string, overrides: Partial<RosterEntry> = {}): RosterEntry => ({
   id: `${slug}:free`,
@@ -313,6 +313,62 @@ describe('runDeliberation', () => {
     expect(result.convergence).toHaveLength(0)
     expect(result.requestsSpent).toBe(4)
     expect(result.trajectory.reached).toBe(true)
+  })
+
+  it('reports each round the moment it is counted, handing over the arrays it counted', async () => {
+    const panel = buildPanel([member('a/one'), member('b/two'), member('c/three')], 3)
+    const reported: { kind: RoundKind; entries: (Vote | FloorTurn)[] }[] = []
+    const answers: Record<string, Record<string, Position>> = {
+      blind: { A: 'support', B: 'support', C: 'oppose' },
+      floor: { A: 'support', B: 'support', C: 'oppose' },
+      convergence: { C: 'support' },
+    }
+    let current: RoundKind = 'blind'
+    let convergenceCalls = 0
+
+    const result = await runDeliberation(panel, { proposition: 'P?' }, 'en', {
+      key: 'test',
+      call: async ({ model }) => {
+        const seat = model === 'a/one:free' ? 'A' : model === 'b/two:free' ? 'B' : 'C'
+        if (current === 'convergence') convergenceCalls += 1
+        return { text: `{"position":"${answers[current][seat]}","addressed":["B"]}`, meanLogprob: null, midStreamError: null }
+      },
+      onProgress: (round) => {
+        current = round
+      },
+      onRound: (kind, entries) => {
+        reported.push({ kind, entries })
+      },
+    })
+
+    expect(reported.map((entry) => entry.kind)).toEqual(['blind', 'floor', 'convergence'])
+    // The reported round is the very array the tally was built from, not a copy that could
+    // drift: an interface showing the reported round cannot disagree with the count.
+    expect(reported[0].entries).toBe(result.blind)
+    expect(reported[1].entries).toBe(result.floor)
+    expect(reported[2].entries).toBe(result.convergence)
+    // The first round was already delivered while the final round was still being called,
+    // which is the whole reason the hook exists.
+    expect(reported[0].entries).toHaveLength(3)
+    expect(convergenceCalls).toBeGreaterThan(0)
+  })
+
+  it('never reports a round it did not spend', async () => {
+    const panel = buildPanel([member('a/one'), member('b/two')], 2)
+    const reported: RoundKind[] = []
+
+    const result = await runDeliberation(panel, { proposition: 'P?' }, 'en', {
+      key: 'test',
+      call: async () => ({ text: '{"position":"support"}', meanLogprob: null, midStreamError: null }),
+      onRound: (kind) => {
+        reported.push(kind)
+      },
+    })
+
+    expect(result.convergence).toHaveLength(0)
+    // A panel that agreed immediately never spent the final round, so a transcript must not
+    // be able to show one that does not exist.
+    expect(reported).toEqual(['blind', 'floor'])
   })
 
   it('invites only the dissenters back, counts the extra request, and names who held', async () => {

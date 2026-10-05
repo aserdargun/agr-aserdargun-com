@@ -56,6 +56,15 @@ export interface RunnerDeps {
   key: string
   call: (args: CallArgs) => Promise<{ text: string; meanLogprob: number | null; midStreamError: string | null }>
   onProgress?: (phase: RoundKind, seat: string) => void
+  /**
+   * A round's entries, the moment that round is complete.
+   *
+   * This is a reporting hook, not a counting one: it hands over the very arrays the tally
+   * is built from, so an interface can show a deliberation as it happens without the engine
+   * knowing what an interface is, and without a second parser existing anywhere. Nothing
+   * reads back through it, so `tally()` and `recount()` cannot be affected by it.
+   */
+  onRound?: (kind: RoundKind, entries: (Vote | FloorTurn)[]) => void
 }
 
 const propositionLine = (motion: Proposition, locale: Locale): string => {
@@ -507,11 +516,15 @@ export const runDeliberation = async (
     return readFloorTurn(outcome.text, blind[panel.indexOf(seat)], addressed, outcome.meanLogprob)
   })
 
+  deps.onRound?.('blind', blind)
+
   const afterFloor = tally({ blind, floor, convergence: [] })
 
   // Only the seats that did not join the leading position are invited back.
   const dissenters = afterFloor.leading === 'abstain' ? [] : afterFloor.dissentingSeats
   const convergence: FloorTurn[] = []
+
+  deps.onRound?.('floor', floor)
 
   if (dissenters.length > 0) {
     const convergenceSystem = prompt.convergence(locale)
@@ -554,6 +567,7 @@ export const runDeliberation = async (
       }),
     )
     convergence.sort((a, b) => a.seat.localeCompare(b.seat))
+    deps.onRound?.('convergence', convergence)
   }
 
   const finalTally = tally({ blind, floor, convergence })

@@ -102,7 +102,15 @@ const defaultScript: Script = {
   convergence: () => answer('oppose', 'Seat A still has not addressed migration cost.', ',"addressed":["A"]'),
 }
 
-async function stubOpenRouter(page: import('@playwright/test').Page, script: Script = defaultScript) {
+async function stubOpenRouter(
+  page: import('@playwright/test').Page,
+  script: Script = defaultScript,
+  options: { delayMs?: number } = {},
+) {
+  // A free model is slow, and the delay is what makes a mid-run assertion possible at all:
+  // with instant answers a session is over before a locator can look at it.
+  const delay = options.delayMs ?? 0
+  const pause = () => (delay > 0 ? new Promise((resolve) => setTimeout(resolve, delay)) : Promise.resolve())
   await page.route('https://openrouter.ai/api/v1/models', (route) => route.fulfill({ json: catalogue }))
   await page.route('https://openrouter.ai/api/v1/key', (route) =>
     route.fulfill({ json: { data: { free_model_daily_requests: { used: 8, limit: 50, remaining: 42 } } } }),
@@ -111,6 +119,7 @@ async function stubOpenRouter(page: import('@playwright/test').Page, script: Scr
     const body = JSON.parse(route.request().postData() ?? '{}') as { model: string; messages: { content: string }[] }
     const round = roundOf(body.messages[0]?.content ?? '')
     const seat = seatOf(body.model)
+    await pause()
     await route.fulfill({ headers: { 'content-type': 'text/event-stream' }, body: stream(script[round]?.(seat) ?? '{}') })
   })
 }
@@ -224,6 +233,41 @@ test('opens the outcome when the session ends, and keeps the argument one click 
 
   await useTab(page, 'Transcript')
   await expect(page.getByRole('heading', { name: 'Second round · seats answer each other' })).toBeVisible()
+})
+
+test('writes the transcript while the panel is still answering', async ({ page }) => {
+  await stubOpenRouter(page, defaultScript, { delayMs: 1200 })
+
+  await page.goto('/?seats=3')
+  await openWithKey(page)
+  await page.getByLabel('Proposition').fill('Static types are worth their cost in a small codebase.')
+  await page.getByRole('button', { name: 'Convene the panel' }).click()
+  await useTab(page, 'Transcript')
+
+  // The argument is on screen while the session is still running, and the session is still
+  // running: the rounds are counted as they complete rather than handed over at the end.
+  await expect(page.getByRole('heading', { name: 'First round · every seat answers alone' })).toBeVisible({
+    timeout: 20000,
+  })
+  await expect(page.getByRole('tab', { name: 'Outcome' })).toHaveAttribute('aria-selected', 'false')
+  await expect(page.getByRole('heading', { name: 'Second round · seats answer each other' })).toBeVisible({
+    timeout: 20000,
+  })
+  await expect(page.getByRole('tab', { name: 'Outcome' })).toHaveAttribute('aria-selected', 'false')
+
+  await settled(page)
+  await useTab(page, 'Transcript')
+  await expect(page.getByRole('heading', { name: 'Final round · the dissenters answer once more' })).toBeVisible()
+
+  // A tab bar that scrolled away would put the other four sections a scroll away, so it is
+  // the one part of the page that stays put. The viewport is shortened first: a bar that was
+  // never passed by the scroll has not been shown to stick to anything.
+  const bar = page.locator('.ag-tabbar')
+  expect(await bar.evaluate((node) => getComputedStyle(node).position)).toBe('sticky')
+  await page.setViewportSize({ width: 1440, height: 380 })
+  await page.evaluate(() => window.scrollTo(0, 600))
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(200)
+  await expect.poll(async () => Math.round((await bar.boundingBox())?.y ?? 999)).toBe(0)
 })
 
 test('reports convergence on a declared bar, and names the seat that held', async ({ page }) => {

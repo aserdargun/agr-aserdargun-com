@@ -18,6 +18,22 @@ English and Turkish. Runs entirely in the browser.
 A seat that can read "nemotron-ultra" has something to defer to; a seat that can only read "Member C argued for…" has
 to argue. So no model name ever reaches a prompt — but every turn is attributed to a model once you read it.
 
+## Where things are
+
+The interface is five sections behind one tab bar, and the tab follows the session: it stays on the panel while the run
+is live and opens on the outcome when the count is ready.
+
+| Section | What it holds |
+| --- | --- |
+| **Panel** | The key, the proposition, how many models sit, and what each choice will spend — with the models those seats will actually call, shown before anything is spent. |
+| **Outcome** | The motion that was debated, the summary paragraph, the count, the dissent, and whether the panel crossed the declared bar. |
+| **Transcript** | Every seat of every round, written as each round is counted rather than all at once at the end, with who answered whom. |
+| **Archive** | Every verdict the shared archive holds, and the sessions this browser has run, each re-readable. |
+| **Roster** | The live free catalogue, the models left off the panel and why, and the evidence behind the app. |
+
+The count is what the session was run for, so it is what the outcome leads with: the summary sentence comes before the
+bars, and the bars are its evidence.
+
 ## Two ways to choose the topic
 
 - **You give the topic.** Type a claim that can be supported or opposed.
@@ -81,7 +97,7 @@ AGR_LIVE=1 npm test      # also read the real OpenRouter catalogue
 | `src/core/roster.ts` | seating rules and the reasoned exclusion list |
 | `src/core/parse.ts` | tolerant answer reader, addressing and confidence basis |
 | `src/core/prompts.ts` | one prompt per round kind |
-| `src/core/engine.ts` | agenda, three rounds, tally, convergence, verdict text |
+| `src/core/engine.ts` | agenda, three rounds, tally, convergence, verdict text, and the per-round report the interface renders from |
 | `src/core/archive-schema.ts` | export shape and timeline grouping |
 | `scripts/archive-contract.mjs` | the archive integrity rules, shared by browser and Node |
 | `archive/` | filed verdict records |

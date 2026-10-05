@@ -47,7 +47,6 @@ export const copy = {
     en: '20 requests per minute, 50 per UTC day. Two requests a seat to argue, plus one more for each seat that refused to join the leading position, plus the agenda round when the panel picks the topic.',
     tr: 'Dakikada 20, UTC gününde 50 istek. Koltuk başına iki istek, öne çıkan konuma katılmayı reddeden her koltuk için bir istek daha, konuyu panel seçerse bir gündem turu.',
   },
-  quotaUnknown: { en: 'Enter a key to read your quota.', tr: 'Kotanı görmek için anahtar gir.' },
   quotaChipUnknown: { en: 'quota unknown', tr: 'kota bilinmiyor' },
   // The unit is spelled out rather than left to the eyebrow: a bare number with a bar
   // above it reads as a percentage somewhere else in the family.
@@ -91,10 +90,8 @@ export const copy = {
   },
   willCost: { en: 'This run costs', tr: 'Bu koşu harcar' },
   requests: { en: 'requests', tr: 'istek' },
-  costRange: { en: 'at least', tr: 'en az' },
   run: { en: 'Convene the panel', tr: 'Paneli topla' },
   running: { en: 'In session…', tr: 'Oturum sürüyor…' },
-  needKey: { en: 'Save a key first.', tr: 'Önce bir anahtar kaydet.' },
 
   progressHeading: { en: 'The panel is answering', tr: 'Panel yanıtlıyor' },
   answeredCount: { en: 'answered', tr: 'cevapladı' },
@@ -102,6 +99,7 @@ export const copy = {
   progressFailed: { en: 'could not be read', tr: 'okunamadı' },
   backAgain: { en: 'only the seats that disagreed are called back', tr: 'yalnızca karşı çıkan koltuklar geri çağrılır' },
   backToLatest: { en: 'Back to the latest session', tr: 'Son oturuma dön' },
+  readAsWritten: { en: 'Read it as it is written', tr: 'Yazıldıkça oku' },
   showingPast: { en: 'Showing a session from', tr: 'Şu oturum gösteriliyor:' },
   runCostNote: {
     en: 'A session spends one request per seat per round, and the last round is only spent on the seats that held out. That is why the cost is a range and not a number.',

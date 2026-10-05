@@ -248,6 +248,14 @@ export default function App() {
           }
         })
       },
+      // Each round lands as soon as it is counted, so the transcript is written while the
+      // panel is still arguing instead of appearing all at once at the end. The engine
+      // hands over the same entries the tally was built from; nothing is re-parsed here.
+      onRound: (kind: RoundKind, entries: (Vote | FloorTurn)[]) => {
+        if (kind === 'blind') setBlind(entries as Vote[])
+        else if (kind === 'floor') setFloor(entries as FloorTurn[])
+        else setConvergence(entries as FloorTurn[])
+      },
     }
 
     try {
@@ -488,7 +496,15 @@ export default function App() {
             onRun={() => void run()}
           />
 
-          {running ? <RunProgress locale={locale} progress={progress} panel={panel} /> : null}
+          {running ? (
+            <RunProgress
+              locale={locale}
+              progress={progress}
+              panel={panel}
+              written={rounds}
+              onRead={() => setTab('transcript')}
+            />
+          ) : null}
 
           {record ? (
             <SessionStrip
