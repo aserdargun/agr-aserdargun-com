@@ -458,6 +458,70 @@ describe('runDeliberation', () => {
     for (const entry of result.floor) expect(entry.addressed).not.toContain(entry.seat)
   })
 
+  it('records only the seats the answer named, not every seat it was shown', async () => {
+    const panel = buildPanel([member('a/one'), member('b/two'), member('c/three')], 3)
+    // Every seat is shown the other two in the prompt, but only seat C names anyone.
+    const answers: Record<string, string> = {
+      A: '{"position":"support","reason":"A.","addressed":[]}',
+      B: '{"position":"support","reason":"B.","addressed":[]}',
+      C: '{"position":"support","reason":"C.","addressed":["A"]}',
+    }
+    const seatByModel = new Map(panel.map((seat) => [seat.member.id, seat.label]))
+
+    const result = await runDeliberation(panel, { proposition: 'P?' }, 'en', {
+      key: 'test',
+      call: async ({ model }) => {
+        const seat = seatByModel.get(model) ?? 'A'
+        return { text: answers[seat], meanLogprob: null, midStreamError: null }
+      },
+    })
+
+    // Being shown a position is not answering it. A and B named nobody, so the
+    // transcript must say so rather than crediting them with the whole panel.
+    const floorBySeat = new Map(result.floor.map((entry) => [entry.seat, entry]))
+    expect(floorBySeat.get('A')?.addressed).toEqual([])
+    expect(floorBySeat.get('B')?.addressed).toEqual([])
+    expect(floorBySeat.get('C')?.addressed).toEqual(['A'])
+  })
+
+  it('keeps a prose-named seat when the model ignored the requested shape', async () => {
+    const panel = buildPanel([member('a/one'), member('b/two')], 2)
+    const result = await runDeliberation(panel, { proposition: 'P?' }, 'en', {
+      key: 'test',
+      call: async ({ messages }) => {
+        const isFloor = messages[0]?.content.includes('second round')
+        return {
+          text: isFloor ? 'Support. Seat B mispriced the migration.' : '{"position":"support"}',
+          meanLogprob: null,
+          midStreamError: null,
+        }
+      },
+    })
+
+    const floorBySeat = new Map(result.floor.map((entry) => [entry.seat, entry]))
+    expect(floorBySeat.get('A')?.addressed).toEqual(['B'])
+    expect(floorBySeat.get('B')?.addressed).toEqual([])
+  })
+
+  it('drops a named seat that is not in the room, so the transcript never links to nobody', async () => {
+    const panel = buildPanel([member('a/one'), member('b/two')], 2)
+    // "D" is a valid seat letter and a valid JSON value, but only A and B are seated.
+    const result = await runDeliberation(panel, { proposition: 'P?' }, 'en', {
+      key: 'test',
+      call: async ({ messages }) => {
+        const isFloor = messages[0]?.content.includes('second round')
+        return {
+          text: isFloor ? '{"position":"support","addressed":["B","D"]}' : '{"position":"support"}',
+          meanLogprob: null,
+          midStreamError: null,
+        }
+      },
+    })
+
+    const floorBySeat = new Map(result.floor.map((entry) => [entry.seat, entry]))
+    expect(floorBySeat.get('A')?.addressed).toEqual(['B'])
+  })
+
   it('only requests logprobs from members that advertise them', async () => {
     const panel = buildPanel(
       [

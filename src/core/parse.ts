@@ -235,14 +235,25 @@ export const confidenceFromLogprobs = (meanLogprob: number | null): number | nul
  * `measuredLogprob` is only passed when the member advertises `logprobs`; otherwise the
  * confidence is the model's own claim and is labelled `self-reported` so the two are
  * never presented as the same kind of number.
+ *
+ * `panelSeats` is the set of labels actually in the room. A member can name a letter that
+ * is not seated — a 2-seat panel has no "C" — and that name is dropped rather than shown,
+ * because the transcript links each label to that seat's turn and a label nobody holds has
+ * no turn to link to.
  */
 export const readVote = (
   raw: string,
-  options: { measuredLogprob?: number | null; ownSeat?: string } = {},
+  options: { measuredLogprob?: number | null; ownSeat?: string; panelSeats?: readonly string[] } = {},
 ): ParsedVote => {
   const ownSeat = options.ownSeat
+  const seated = options.panelSeats ? new Set(options.panelSeats) : null
   const measured = confidenceFromLogprobs(options.measuredLogprob ?? null)
   const payload = extractJson(raw)
+
+  const addressedInRoom = (labels: string[]): string[] =>
+    labels
+      .filter((label) => label !== ownSeat)
+      .filter((label) => !seated || seated.has(label))
 
   if (payload) {
     const position = normalizePosition(payload.position ?? payload.vote ?? payload.decision)
@@ -254,7 +265,7 @@ export const readVote = (
       reason: reason || raw.trim(),
       confidence: measured ?? stated,
       confidenceBasis: measured !== null ? 'measured' : stated !== null ? 'self-reported' : 'absent',
-      addressed: readAddressed(payload, raw).filter((label) => label !== ownSeat),
+      addressed: addressedInRoom(readAddressed(payload, raw)),
       formatCompliant: true,
     }
   }
@@ -264,7 +275,7 @@ export const readVote = (
     reason: raw.trim(),
     confidence: measured,
     confidenceBasis: measured !== null ? 'measured' : 'absent',
-    addressed: readAddressed(null, raw).filter((label) => label !== ownSeat),
+    addressed: addressedInRoom(readAddressed(null, raw)),
     formatCompliant: false,
   }
 }

@@ -13,7 +13,7 @@ import type {
   Vote,
 } from './types'
 import { AGREEMENT_THRESHOLD, SEAT_LABELS } from './types'
-import { readAddressed, readProposal, readVote } from './parse'
+import { readProposal, readVote } from './parse'
 import { selectPanelMembers } from './roster'
 import {
   AGENDA_PROMPT_EN,
@@ -248,8 +248,16 @@ export const clusterProposals = (proposals: Proposal[], threshold = 0.34): Clust
 /** The panel's own pick: the largest cluster, ties broken by the earliest seat. */
 export const pickByCluster = (clusters: Cluster[]): Cluster | null => clusters[0] ?? null
 
-export const readFloorTurn = (raw: string, first: Vote, addressed: string[], measured: number | null): FloorTurn => {
-  const parsed = readVote(raw, { measuredLogprob: measured, ownSeat: first.seat })
+/**
+ * The second round's turn, read from the answer itself.
+ *
+ * `addressed` comes from `readVote` and is never reassigned here. An earlier version
+ * overwrote it with the seats this member had merely been *shown*, which made every
+ * seat look as though it had answered the whole panel; the transcript is the record of
+ * who argued with whom, so a seat that named nobody has to read as having named nobody.
+ */
+export const readFloorTurn = (raw: string, first: Vote, measured: number | null, panelSeats?: readonly string[]): FloorTurn => {
+  const parsed = readVote(raw, { measuredLogprob: measured, ownSeat: first.seat, panelSeats })
   return {
     ...parsed,
     raw,
@@ -258,7 +266,6 @@ export const readFloorTurn = (raw: string, first: Vote, addressed: string[], mea
     memberId: first.memberId,
     changed: parsed.position !== first.position,
     firstRoundPosition: first.position,
-    addressed,
   }
 }
 
@@ -476,6 +483,8 @@ export const runDeliberation = async (
   const user = propositionLine(motion, locale)
   const blindMessages = messagesFor(blindSystem, user)
 
+  const panelSeats = panel.map((seat) => seat.label)
+
   deps.onProgress?.('blind', 'all')
   const blindOutcomes = await Promise.all(panel.map((seat) => callSeat(seat, blindMessages, deps)))
 
@@ -485,7 +494,7 @@ export const runDeliberation = async (
     return {
       seat: seat.label,
       memberId: seat.member.id,
-      ...readVote(outcome.text, { measuredLogprob: outcome.meanLogprob, ownSeat: seat.label }),
+      ...readVote(outcome.text, { measuredLogprob: outcome.meanLogprob, ownSeat: seat.label, panelSeats }),
       raw: outcome.text,
       meanLogprob: outcome.meanLogprob,
       addressed: [],
@@ -500,20 +509,19 @@ export const runDeliberation = async (
 
     deps.onProgress?.('floor', seat.label)
     const outcome = await callSeat(seat, messagesFor(floorSystem, floorMessage(motion, others, locale)), deps)
-    return { seat, outcome, addressed: others.map((other) => other.label) }
+    return { seat, outcome }
   })
 
   const floorResults = await Promise.all(floorWork)
-  const floor: FloorTurn[] = floorResults.map(({ seat, outcome, addressed }) => {
+  const floor: FloorTurn[] = floorResults.map(({ seat, outcome }) => {
     if (outcome.error) {
       return {
         ...emptyVote(seat, outcome.error, outcome.text),
         changed: false,
         firstRoundPosition: blind[panel.indexOf(seat)].position,
-        addressed,
       }
     }
-    return readFloorTurn(outcome.text, blind[panel.indexOf(seat)], addressed, outcome.meanLogprob)
+    return readFloorTurn(outcome.text, blind[panel.indexOf(seat)], outcome.meanLogprob, panelSeats)
   })
 
   deps.onRound?.('blind', blind)
@@ -549,11 +557,10 @@ export const runDeliberation = async (
             ...emptyVote(seat, outcome.error, outcome.text),
             changed: false,
             firstRoundPosition: before?.position ?? first.position,
-            addressed: holderSummary.map((entry) => entry.label),
           })
           return
         }
-        const parsed = readVote(outcome.text, { measuredLogprob: outcome.meanLogprob, ownSeat: label })
+        const parsed = readVote(outcome.text, { measuredLogprob: outcome.meanLogprob, ownSeat: label, panelSeats })
         convergence.push({
           ...parsed,
           raw: outcome.text,
@@ -562,7 +569,6 @@ export const runDeliberation = async (
           memberId: seat.member.id,
           changed: parsed.position !== (before?.position ?? first.position),
           firstRoundPosition: before?.position ?? first.position,
-          addressed: readAddressed(null, outcome.text),
         })
       }),
     )
